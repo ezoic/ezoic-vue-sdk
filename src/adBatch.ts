@@ -46,6 +46,15 @@ export function releaseAdId(id: number): void {
 }
 
 /**
+ * Reports whether a placeholder id is currently claimed by a mounted ad. Used by
+ * the semantic-location resolver so it never hands out an id another `<EzoicAd>`
+ * already owns.
+ */
+export function isAdIdClaimed(id: number): boolean {
+  return claimedIds.has(id);
+}
+
+/**
  * Adds a placeholder to the pending batch and schedules a microtask flush.
  * Every ad that mounts in the same tick lands in the same batch, so the flush
  * emits exactly one `showAds(...)` carrying all of their ids.

@@ -58,6 +58,17 @@ export interface EzstandaloneGlobal {
    * pageview. Set once at app boot.
    */
   setIsSinglePageApplication?: (spa: boolean) => void;
+  /**
+   * Resolve a semantic location name (e.g. `"under_first_paragraph"`) to a free
+   * placeholder id in Ezoic's reserved range, allocating a new id when every
+   * known slot is taken. Only present once the ad bundle has loaded; before then
+   * the SDK resolves location names against its own static map instead.
+   *
+   * The result is a placeholder id (usually 900–999, but the bundle may allocate
+   * an id above 999 when all reserved slots are in use). It can arrive as a
+   * number or a numeric string, so callers should coerce with `Number(...)`.
+   */
+  GetGeneratedIdAsync?: (locationName: string) => Promise<number | string>;
 }
 
 declare global {

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { isValidPlaceholderId, placeholderDomId } from './placeholder';
+import {
+  isValidPlaceholderId,
+  placeholderDomId,
+  resolvedPlaceholderDomId,
+} from './placeholder';
 
 describe('isValidPlaceholderId', () => {
   it('accepts integers in the inclusive 1–999 range', () => {
@@ -31,5 +35,21 @@ describe('placeholderDomId', () => {
     expect(() => placeholderDomId(0)).toThrow(RangeError);
     expect(() => placeholderDomId(1000)).toThrow(RangeError);
     expect(() => placeholderDomId(1.5)).toThrow(RangeError);
+  });
+});
+
+describe('resolvedPlaceholderDomId', () => {
+  it('builds the div id for in-range and allocated ids', () => {
+    expect(resolvedPlaceholderDomId(909)).toBe('ezoic-pub-ad-placeholder-909');
+    // Allocated ids above the 1–999 scan range are accepted here.
+    expect(resolvedPlaceholderDomId(1000)).toBe(
+      'ezoic-pub-ad-placeholder-1000',
+    );
+  });
+
+  it('throws for non-positive or non-integer ids', () => {
+    expect(() => resolvedPlaceholderDomId(0)).toThrow(RangeError);
+    expect(() => resolvedPlaceholderDomId(-1)).toThrow(RangeError);
+    expect(() => resolvedPlaceholderDomId(1.5)).toThrow(RangeError);
   });
 });

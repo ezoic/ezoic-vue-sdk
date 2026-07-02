@@ -4,11 +4,12 @@ Official [Ezoic](https://www.ezoic.com/) ads SDK for Vue 3.
 
 > **Status: 0.x, in active development.** This package is being built out
 > incrementally. It currently ships script management (the `EzoicPlugin`), the
-> `useEzoic()` composable, the `<EzoicAd>` display-placeholder component, and
-> single-page-app routing (`useEzoicPageView()` plus the plugin's `spa`/`router`
-> options), on top of the verified foundation (public script URLs, the
-> placeholder DOM contract, and shared types). CMP/consent helpers, rewarded
-> ads, and video are on the roadmap below.
+> `useEzoic()` composable, the `<EzoicAd>` display-placeholder component (numeric
+> ids and zero-config semantic `location` names), and single-page-app routing
+> (`useEzoicPageView()` plus the plugin's `spa`/`router` options), on top of the
+> verified foundation (public script URLs, the placeholder DOM contract, and
+> shared types). CMP/consent helpers, rewarded ads, and video are on the roadmap
+> below.
 
 ## Install
 
@@ -109,6 +110,48 @@ import { EzoicAd } from '@ezoic/vue-sdk';
   sizing). Wrap `<EzoicAd>` in your own element to position it.
 - **SSR-safe.** The div renders during server render; the ad request happens
   only on the client after mount.
+
+## Zero-config placements (`location`)
+
+Instead of generating a numeric id in your dashboard, you can place an ad by its
+semantic location name. `<EzoicAd>` resolves the name to a reserved placeholder
+id for you:
+
+```vue
+<script setup lang="ts">
+import { EzoicAd } from '@ezoic/vue-sdk';
+</script>
+
+<template>
+  <EzoicAd location="top_of_page" />
+  <EzoicAd location="under_first_paragraph" />
+  <EzoicAd location="mid_content" required />
+</template>
+```
+
+- **`id` or `location`, never both.** Pass exactly one. Passing both, or
+  neither, logs a warning and renders nothing.
+- **How it resolves.** When the ad bundle has loaded, the SDK uses its
+  `GetGeneratedIdAsync(location)` helper (which finds a free slot and can
+  allocate a fresh id for a repeated location). Before the bundle is available,
+  the SDK resolves the name against its own copy of Ezoic's reserved location
+  map, so the placeholder still appears on first paint.
+- **Repeated locations get distinct ids.** Two `<EzoicAd location="...">` with
+  the same name resolve to different placeholder ids (the second falls to the
+  next free in-content slot) rather than colliding.
+- **Common names.** `top_of_page`, `under_page_title`, `bottom_of_page`,
+  `under_first_paragraph`, `under_second_paragraph`, `mid_content`,
+  `long_content`, the `sidebar*` family, and `incontent_5`…`incontent_88`.
+  Aliases such as `incontent_0` (→ `under_second_paragraph`) and
+  `sidebar_floating` (→ `sidebar_floating_1`) are accepted too. An unrecognized
+  name still resolves to a generic in-content slot, with a warning.
+- **Client-only.** Because the name resolves on the client, a `location`
+  placeholder renders nothing during SSR and appears after mount. Use a numeric
+  `id` if you need the div present in the server-rendered HTML.
+- **`required` and `sizes`** work exactly as they do with a numeric `id`.
+
+`required`/`sizes`, batching, teardown on unmount, and the bare-div rule all
+apply to `location` placeholders just like numeric ones.
 
 ## Single-page apps (SPA routing)
 
@@ -223,10 +266,14 @@ import {
   PLACEHOLDER_ID_PREFIX, // 'ezoic-pub-ad-placeholder-'
   isValidPlaceholderId, // integer 1–999 check
   placeholderDomId, // e.g. placeholderDomId(101)
+  ID_TO_LOCATION, // reserved id → location-name map
+  LOCATION_TO_ID, // location name → id (aliases included)
+  isKnownLocation, // is a name a documented location/alias?
   type ShowAdsPlaceholder,
 } from '@ezoic/vue-sdk';
 
 placeholderDomId(101); // 'ezoic-pub-ad-placeholder-101'
+isKnownLocation('under_first_paragraph'); // true
 ```
 
 Placeholder divs follow Ezoic's DOM contract and carry **no styling** on the
@@ -242,7 +289,7 @@ placeholder element itself:
 2. Plugin + script management (`app.use(EzoicPlugin, options)`) ✅
 3. Display ads (`<EzoicAd :id="101" />`) ✅
 4. SPA routing (vue-router integration, Nuxt recipe) ✅
-5. Zero-config placements (`<EzoicAd location="under_first_paragraph" />`)
+5. Zero-config placements (`<EzoicAd location="under_first_paragraph" />`) ✅
 6. CMP/consent + typed `config()`
 7. Rewarded ads (`useEzoicRewarded()`)
 8. Video (`<EzoicVideo>`, `<HumixVideo>`)

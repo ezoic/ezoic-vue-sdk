@@ -57,6 +57,20 @@ describe('server-side rendering', () => {
     expect(html).toContain('id="ezoic-pub-ad-placeholder-101"');
   });
 
+  it('renders a location <EzoicAd> to nothing on the server without touching the DOM', async () => {
+    // A location resolves on the client, so the server render is empty — and,
+    // crucially, must not throw by reaching for window/document.
+    const app = createApp({
+      setup() {
+        return () => h(EzoicAd, { location: 'under_first_paragraph' });
+      },
+    });
+    app.use(EzoicPlugin);
+
+    const html = await renderToString(app);
+    expect(html).not.toContain('ezoic-pub-ad-placeholder-');
+  });
+
   it('useEzoicPageView renders without touching the DOM', async () => {
     const Comp = defineComponent({
       setup() {

@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Zero-config placements. `<EzoicAd>` now accepts a semantic `location` name
+  (e.g. `location="under_first_paragraph"`) instead of a numeric `id`; the two
+  props are mutually exclusive (passing both or neither warns and renders
+  nothing). When the ad bundle is loaded the SDK resolves the name via
+  `ezstandalone.GetGeneratedIdAsync(location)`; before then it resolves against
+  its own copy of Ezoic's reserved location map so the placeholder still appears
+  on first paint. Repeated locations resolve to distinct ids (the resolver skips
+  ids already claimed by mounted ads), and resolution feeds the same
+  same-tick batching and unmount teardown as numeric ids. Location placeholders
+  resolve on the client, so they render nothing during SSR. New exports:
+  `ID_TO_LOCATION`, `LOCATION_TO_ID`, `LOCATION_ALIASES`, `isKnownLocation`, and
+  `resolvedPlaceholderDomId`; `EzstandaloneGlobal` gains `GetGeneratedIdAsync`.
 - Single-page-app routing. `useEzoicPageView(routeKey, options?)` turns each
   change of a reactive route key into an Ezoic pageview: scan mode (no `ids`)
   re-requests the new route's ads via `showAds()` and pairs with `<EzoicAd>`;

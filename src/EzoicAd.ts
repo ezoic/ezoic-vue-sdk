@@ -10,6 +10,15 @@
  * batched into a single page-wide `showAds(...)` call (see the adBatch module);
  * on unmount the placeholder is destroyed.
  *
+ * Give it either a numeric `id` (generated in your Ezoic dashboard) or a
+ * semantic `location` name for a zero-config placement — exactly one, never
+ * both. A `location` is resolved to a placeholder id at runtime: the ad bundle's
+ * `GetGeneratedIdAsync` is used when it has loaded, otherwise the SDK's static
+ * location map resolves it so the placeholder still appears on first paint.
+ * Because a location resolves on the client, a `location` placeholder renders
+ * nothing during SSR and appears after mount; a numeric `id` renders its div
+ * during SSR as well.
+ *
  * Written as a render-function component (no `.vue` single-file component) so
  * the SDK needs no template compiler or `eslint-plugin-vue` in its toolchain;
  * consumers use it in templates exactly like any other component.
@@ -18,11 +27,20 @@
  * ```vue
  * <EzoicAd :id="101" />
  * <EzoicAd :id="102" required :sizes="['728x90', '970x250']" />
+ * <EzoicAd location="under_first_paragraph" />
  * ```
  */
-import { defineComponent, h, onMounted, onUnmounted, type PropType } from 'vue';
-import { claimAdId, queueShowAd, releaseAdId } from './adBatch';
-import { isValidPlaceholderId, placeholderDomId } from './placeholder';
+import {
+  defineComponent,
+  h,
+  onMounted,
+  onUnmounted,
+  ref,
+  type PropType,
+} from 'vue';
+import { claimAdId, isAdIdClaimed, queueShowAd, releaseAdId } from './adBatch';
+import { isKnownLocation, resolveLocationIdFromMap } from './locations';
+import { isValidPlaceholderId, resolvedPlaceholderDomId } from './placeholder';
 import type { ShowAdsArg, ShowAdsPlaceholder } from './types';
 import { useEzoic } from './useEzoic';
 
@@ -49,8 +67,17 @@ export const EzoicAd = defineComponent({
   // Ezoic requires it to stay bare so the ad bundle controls sizing.
   inheritAttrs: false,
   props: {
-    /** Numeric placeholder id (integer 1–999). */
-    id: { type: Number, required: true },
+    /**
+     * Numeric placeholder id (integer 1–999), generated in your Ezoic
+     * dashboard. Mutually exclusive with {@link location}.
+     */
+    id: { type: Number, default: undefined },
+    /**
+     * Semantic location name for a zero-config placement (e.g.
+     * `"under_first_paragraph"`, `"top_of_page"`, `"mid_content"`). Resolved to
+     * a placeholder id at runtime. Mutually exclusive with {@link id}.
+     */
+    location: { type: String, default: undefined },
     /**
      * Mark the placeholder as required (`saContext.rid`). Defaults to `false`.
      */
@@ -62,11 +89,23 @@ export const EzoicAd = defineComponent({
     sizes: { type: Array as PropType<string[]>, default: undefined },
   },
   setup(props) {
-    // Establishes the plugin requirement (throws if not installed), even for an
-    // invalid id, so misuse fails loudly.
+    // Establishes the plugin requirement (throws if not installed), even for
+    // invalid props, so misuse fails loudly.
     const ez = useEzoic();
 
-    if (!isValidPlaceholderId(props.id)) {
+    const hasId = props.id != null;
+    const hasLocation =
+      typeof props.location === 'string' && props.location.length > 0;
+
+    if (hasId === hasLocation) {
+      console.warn(
+        '[ezoic-vue-sdk] <EzoicAd> requires exactly one of `id` or `location`. ' +
+          'Provide a numeric `id` from your dashboard or a semantic `location` name.',
+      );
+      return () => null;
+    }
+
+    if (hasId && !isValidPlaceholderId(props.id as number)) {
       console.warn(
         `[ezoic-vue-sdk] <EzoicAd> ignored: invalid placeholder id ${props.id}. ` +
           'Ids must be integers in 1-999.',
@@ -74,29 +113,105 @@ export const EzoicAd = defineComponent({
       return () => null;
     }
 
-    const domId = placeholderDomId(props.id);
-    // Whether this instance owns the id (won the duplicate check). Only the
+    if (hasLocation && !isKnownLocation(props.location as string)) {
+      console.warn(
+        `[ezoic-vue-sdk] <EzoicAd> unknown location "${props.location}"; ` +
+          'resolving it to a generic in-content slot. Check for a typo.',
+      );
+    }
+
+    // The placeholder id once known. A numeric id is known synchronously (so its
+    // div renders during SSR and on first paint); a location resolves after
+    // mount on the client.
+    const resolvedId = ref<number | null>(hasId ? (props.id as number) : null);
+    // Whether this instance owns its id (won the duplicate check). Only the
     // owner registers a showAds and destroys the placeholder on unmount.
     let owns = false;
+    let ownedId: number | null = null;
+    // Set once the component has unmounted. A location resolves asynchronously,
+    // so the component can unmount while `GetGeneratedIdAsync` is still pending
+    // (e.g. an SPA route change); the late callback must not claim an id or
+    // request an ad for a placeholder that is no longer in the DOM.
+    let disposed = false;
+
+    /**
+     * Claims `id` and queues its showAds. Returns `false` when the id is already
+     * owned by another mounted ad (the caller decides whether to warn or retry).
+     */
+    function claimAndQueue(id: number): boolean {
+      if (!claimAdId(id)) return false;
+      owns = true;
+      ownedId = id;
+      resolvedId.value = id;
+      queueShowAd(toShowAdsArg(id, props.required, props.sizes), ez.push);
+      return true;
+    }
+
+    /** Activates a numeric id: a taken id is a duplicate to warn about and skip. */
+    function activateNumeric(id: number): void {
+      if (disposed) return;
+      if (!claimAndQueue(id)) {
+        console.warn(
+          `[ezoic-vue-sdk] <EzoicAd> duplicate placeholder id ${id} ignored; ` +
+            'an ad with this id is already mounted.',
+        );
+      }
+    }
+
+    /**
+     * Activates a resolved location id. If the id was taken between resolution
+     * and now — two location ads resolving concurrently via the async bundle can
+     * land on the same id — re-resolve to the next free slot synchronously (no
+     * further race), so each location placeholder still renders a distinct id.
+     */
+    function activateLocation(location: string, id: number): void {
+      if (disposed) return;
+      if (claimAndQueue(id)) return;
+      claimAndQueue(resolveLocationIdFromMap(location, isAdIdClaimed));
+    }
 
     onMounted(() => {
-      owns = claimAdId(props.id);
-      if (!owns) {
-        console.warn(
-          `[ezoic-vue-sdk] <EzoicAd> duplicate placeholder id ${props.id} ignored; ` +
-            'an ad with this id is already mounted.',
+      if (hasId) {
+        activateNumeric(props.id as number);
+        return;
+      }
+
+      const location = props.location as string;
+      const ezg = window.ezstandalone;
+      if (!ezg || typeof ezg.GetGeneratedIdAsync !== 'function') {
+        activateLocation(
+          location,
+          resolveLocationIdFromMap(location, isAdIdClaimed),
         );
         return;
       }
-      queueShowAd(toShowAdsArg(props.id, props.required, props.sizes), ez.push);
+
+      // Bundle is loaded: let it pick the id (DOM-aware, allocates fresh ids for
+      // repeated locations). Call it as a method so its internal `this` resolves.
+      // Fall back to the static map if it returns something unusable or already
+      // claimed by another mounted ad.
+      Promise.resolve(ezg.GetGeneratedIdAsync(location))
+        .then((raw) => {
+          const id = Number(raw);
+          if (!Number.isInteger(id) || id < 1 || isAdIdClaimed(id)) {
+            return resolveLocationIdFromMap(location, isAdIdClaimed);
+          }
+          return id;
+        })
+        .catch(() => resolveLocationIdFromMap(location, isAdIdClaimed))
+        .then((id) => activateLocation(location, id));
     });
 
     onUnmounted(() => {
-      if (!owns) return;
-      releaseAdId(props.id);
-      ez.destroyPlaceholders(props.id);
+      disposed = true;
+      if (!owns || ownedId == null) return;
+      releaseAdId(ownedId);
+      ez.destroyPlaceholders(ownedId);
     });
 
-    return () => h('div', { id: domId });
+    return () =>
+      resolvedId.value == null
+        ? null
+        : h('div', { id: resolvedPlaceholderDomId(resolvedId.value) });
   },
 });
