@@ -1,0 +1,81 @@
+{
+  "name": "@ezoic/vue-sdk",
+  "version": "0.1.0",
+  "description": "Official Ezoic ads SDK for Vue 3 — script management, display placeholders, SPA routing, CMP/consent, rewarded ads, and video.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Ezoic",
+  "homepage": "https://github.com/ezoic/ezoic-vue-sdk#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ezoic/ezoic-vue-sdk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ezoic/ezoic-vue-sdk/issues"
+  },
+  "keywords": [
+    "ezoic",
+    "vue",
+    "vue3",
+    "ads",
+    "adsense",
+    "header-bidding",
+    "cmp",
+    "sdk"
+  ],
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "CHANGELOG.md"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "vite build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "vue-tsc --noEmit",
+    "prepack": "npm run build"
+  },
+  "peerDependencies": {
+    "vue": "^3.4.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@vitejs/plugin-vue": "^6.0.7",
+    "@vitest/coverage-v8": "^4.1.9",
+    "@vue/test-utils": "^2.4.11",
+    "eslint": "^10.6.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.7.0",
+    "jsdom": "^29.1.1",
+    "prettier": "^3.9.4",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.62.1",
+    "vite": "^8.1.2",
+    "vite-plugin-dts": "^5.0.3",
+    "vitest": "^4.1.9",
+    "vue": "^3.5.39",
+    "vue-tsc": "^3.3.6"
+  }
+}
