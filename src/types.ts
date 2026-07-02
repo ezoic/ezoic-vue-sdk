@@ -40,6 +40,15 @@ export interface EzoicPluginOptions {
    * own debounce coalesce these into a single ad request per route change.
    */
   router?: EzoicRouter;
+  /**
+   * Publisher-specific loader URL for the Ezoic rewarded-ads script
+   * (`/porpoiseant/ezadloadrewarded.js`, served from your Ezoic ad host). When
+   * set, the plugin injects the rewarded loader (async, after the standalone
+   * bundle) so `window.ezRewardedAds` becomes usable; this is required for
+   * rewarded ads to function. Leave it unset if you do not use rewarded ads.
+   * Find the exact URL in your Ezoic dashboard / integration docs.
+   */
+  rewardedLoaderUrl?: string;
 }
 
 /**
@@ -171,6 +180,17 @@ export interface EzoicApi {
    * no-op during SSR.
    */
   setDisablePersonalizedAds: (disable: boolean) => void;
+  /**
+   * Declare the site-wide rewarded ad formats via
+   * `ezstandalone.initRewardedAds`. Enables the ambient formats that back the
+   * rewarded experience (anchor, interstitial, video, side rails); pass a
+   * {@link RewardedSiteWidePlacements} object to toggle individual formats
+   * (each defaults to `true`). Queued on the command queue, so it is safe to
+   * call before the bundle loads, and a no-op during SSR. This configures the
+   * ambient placements only — request and show individual rewarded ads with
+   * {@link useEzoicRewarded}.
+   */
+  initRewardedAds: (placements?: RewardedSiteWidePlacements) => void;
 }
 
 /**
@@ -229,3 +249,158 @@ export interface ShowAdsPlaceholder {
  * {@link ShowAdsPlaceholder} object form.
  */
 export type ShowAdsArg = number | ShowAdsPlaceholder;
+
+/**
+ * Result delivered to the callback of `ezRewardedAds.request(...)`. Reports
+ * whether a rewarded ad is available to show.
+ */
+export interface RewardedRequestResult {
+  /** `true` when a rewarded ad is available and ready to be shown. */
+  status: boolean;
+  /** Human-readable status message (e.g. a fill/no-fill reason). */
+  msg: string;
+  /** Ad metadata present when an ad is available. */
+  adInfo?: Record<string, unknown>;
+}
+
+/**
+ * Result delivered to the callback of the show-style rewarded methods
+ * (`show`, `requestAndShow`, `requestWithOverlay`). Reports whether the ad ran
+ * and whether the reward was earned.
+ */
+export interface RewardedShowResult {
+  /** `true` when the ad flow completed without a hard failure. */
+  status: boolean;
+  /** `true` when the visitor earned the reward (watched to completion). */
+  reward: boolean;
+  /** Human-readable outcome message. */
+  msg: string;
+  /** Ad metadata present when an ad ran. */
+  adInfo?: Record<string, unknown>;
+  /** Reward/user metadata present when a reward was granted. */
+  userInfo?: Record<string, unknown>;
+}
+
+/** Config for `ezRewardedAds.request(...)`. All fields optional. */
+export interface RewardedRequestConfig {
+  /** Minimum CPM floor for the rewarded request; `null` clears any floor. */
+  minCPM?: number | null;
+  /** Reward type label passed through to reporting. */
+  rewardType?: string;
+  /** Reward amount passed through to reporting. */
+  rewardAmount?: number;
+}
+
+/** Config for `ezRewardedAds.show(...)`. All fields optional. */
+export interface RewardedShowConfig {
+  /** Reward name label attributed to this show. */
+  rewardName?: string;
+  /** Arbitrary user metadata echoed back in the result's `userInfo`. */
+  userInfo?: Record<string, unknown>;
+}
+
+/**
+ * Config for `ezRewardedAds.requestAndShow(...)`. All fields optional.
+ *
+ * The SDK always sets `alwaysCallback` internally so the returned promise
+ * settles in every outcome (reward granted, no-fill, user cancel, or
+ * closed-before-reward); it is not a caller-settable option.
+ */
+export interface RewardedRequestAndShowConfig {
+  /** Reward name label attributed to this flow. */
+  rewardName?: string;
+  /** Grant the reward even when no ad fills. */
+  rewardOnNoFill?: boolean;
+  /** Show the loading overlay while the ad is fetched. */
+  loadingOverlay?: boolean;
+  /** Minimum CPM floor for the request; `null` clears any floor. */
+  minCPM?: number | null;
+  /** Reward type label passed through to reporting. */
+  rewardType?: string;
+  /** Reward amount passed through to reporting. */
+  rewardAmount?: number;
+}
+
+/** Localized text for the `ezRewardedAds.requestWithOverlay(...)` prompt. */
+export interface RewardedOverlayText {
+  /** Overlay header line. */
+  header?: string;
+  /** Overlay body lines. */
+  body?: string[];
+  /** Accept button label. */
+  accept?: string;
+  /** Cancel button label. */
+  cancel?: string;
+}
+
+/**
+ * Config for `ezRewardedAds.requestWithOverlay(...)`. Extends
+ * {@link RewardedRequestAndShowConfig} with the overlay-specific options.
+ */
+export interface RewardedRequestWithOverlayConfig extends RewardedRequestAndShowConfig {
+  /** Lock page scroll while the overlay is open. */
+  lockScroll?: boolean;
+  /** Skip the confirmation prompt and go straight to the ad. */
+  dontAsk?: boolean;
+}
+
+/**
+ * Call-to-action customization for the `ezRewardedAds.contentLocker(...)`
+ * gating UI.
+ */
+export interface RewardedContentLockerCallToAction {
+  /** Disable the call-to-action UI. */
+  disabled?: boolean;
+  /** Call-to-action header text. */
+  header?: string;
+  /** Call-to-action body text. */
+  body?: string;
+  /** Call-to-action button label. */
+  button?: string;
+}
+
+/** Config for `ezRewardedAds.contentLocker(...)`. All fields optional. */
+export interface RewardedContentLockerConfig {
+  /** Show the loading overlay while the ad is fetched. Defaults to `true`. */
+  loadingOverlay?: boolean;
+  /**
+   * Invoked with the request result once the rewarded ad is ready. Defaults to
+   * `null`.
+   */
+  readyCallback?: (result: RewardedRequestResult) => void;
+  /** Reward name label attributed to this flow. */
+  rewardName?: string;
+  /** Minimum CPM floor for the request; `null` clears any floor. */
+  minCPM?: number | null;
+  /** Call-to-action UI customization. */
+  callToAction?: RewardedContentLockerCallToAction;
+}
+
+/**
+ * Site-wide rewarded ad format toggles for
+ * `ezstandalone.initRewardedAds(...)`. Each format defaults to `true`.
+ */
+export interface RewardedSiteWidePlacements {
+  /** Enable the anchor (sticky) format. */
+  anchor?: boolean;
+  /** Enable the interstitial format. */
+  interstitial?: boolean;
+  /** Enable the video format. */
+  video?: boolean;
+  /** Enable the side rails format. */
+  sideRails?: boolean;
+}
+
+/**
+ * The `action` argument to `ezRewardedAds.contentLocker(...)`: a URL string to
+ * redirect to after the reward is earned, or a function to run after the
+ * reward is earned.
+ */
+export type RewardedContentLockerAction = string | (() => void);
+
+/**
+ * The rewarded-flow lifecycle status surfaced by {@link useEzoicRewarded}.
+ * Tracks the window events the rewarded script dispatches: `idle` before any
+ * activity, then `initiated` → `displayed` → `closed`.
+ */
+export type RewardedFlowStatus = 'idle' | 'initiated' | 'displayed' | 'closed';

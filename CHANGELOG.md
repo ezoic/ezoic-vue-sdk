@@ -9,6 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Rewarded ads. New composable `useEzoicRewarded(options?)` wraps
+  `window.ezRewardedAds`: `register()` (fire-and-forget pageview tracking) plus
+  promise-returning `request`, `show`, `requestAndShow`, `requestWithOverlay`,
+  and `contentLocker`. Each callback-style method resolves when the underlying
+  ad flow settles (including no-fill and cancellation) with no timers; when
+  rewarded ads are unavailable they resolve a typed failure (`status: false`)
+  rather than rejecting. A reactive `status` (`idle` → `initiated` →
+  `displayed` → `closed`) tracks the flow via the rewarded window events, and a
+  reactive `ready` flips once the loader initializes; both are SSR-safe and the
+  event listeners detach on unmount. The composable is decoupled from the
+  plugin — it manages its own `ezRewardedAds` command-queue stub and can inject
+  the loader itself via `useEzoicRewarded({ loaderUrl })`. `useEzoic()` gains an
+  `initRewardedAds(placements?)` passthrough for the site-wide rewarded formats
+  (anchor, interstitial, video, side rails). The `EzoicPlugin` gains a
+  `rewardedLoaderUrl` option that injects the publisher-specific rewarded loader
+  (`/porpoiseant/ezadloadrewarded.js`) async after the standalone bundle. New
+  exports: `useEzoicRewarded`, the `UseEzoicRewardedOptions` and `EzoicRewarded`
+  types, the `EzRewardedGlobal` window type, and the rewarded payload/config
+  types (`RewardedRequestResult`, `RewardedShowResult`, `RewardedRequestConfig`,
+  `RewardedShowConfig`, `RewardedRequestAndShowConfig`, `RewardedOverlayText`,
+  `RewardedRequestWithOverlayConfig`, `RewardedContentLockerConfig`,
+  `RewardedContentLockerCallToAction`, `RewardedContentLockerAction`,
+  `RewardedSiteWidePlacements`, `RewardedFlowStatus`).
 - CMP/consent and typed configuration. `useEzoic()` gains verified passthroughs
   for publisher configuration and ad formats: `config(options)` (a closed,
   typed `EzoicConfigOptions` set — the bundle rejects unknown keys),

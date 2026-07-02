@@ -8,8 +8,9 @@
  * semantic `location` names), single-page-app routing (`useEzoicPageView()`
  * plus the plugin's `spa`/`router` options), and CMP/consent + configuration
  * helpers (`useEzoicConsent()`, plus `config()` and the format toggles on
- * `useEzoic()`). Rewarded ads and video land in later releases — see
- * CHANGELOG.md.
+ * `useEzoic()`), and rewarded ads (`useEzoicRewarded()`, plus
+ * `initRewardedAds()` on `useEzoic()` and the plugin's `rewardedLoaderUrl`
+ * option). Video lands in a later release — see CHANGELOG.md.
  */
 export {
   STANDALONE_SCRIPT_URL,
@@ -34,6 +35,7 @@ export { EzoicAd } from './EzoicAd';
 export { useEzoic } from './useEzoic';
 export { useEzoicPageView } from './pageView';
 export { useEzoicConsent } from './consent';
+export { useEzoicRewarded } from './rewarded';
 export { ezoicInjectionKey } from './keys';
 export type {
   ShowAdsPlaceholder,
@@ -42,13 +44,27 @@ export type {
   EzoicApi,
   EzoicConfigOptions,
   EzoicRouter,
+  RewardedRequestResult,
+  RewardedShowResult,
+  RewardedRequestConfig,
+  RewardedShowConfig,
+  RewardedRequestAndShowConfig,
+  RewardedOverlayText,
+  RewardedRequestWithOverlayConfig,
+  RewardedContentLockerConfig,
+  RewardedContentLockerCallToAction,
+  RewardedContentLockerAction,
+  RewardedSiteWidePlacements,
+  RewardedFlowStatus,
 } from './types';
 export type { EzoicPageViewOptions } from './pageView';
 export type { EzoicConsentState } from './consent';
+export type { UseEzoicRewardedOptions, EzoicRewarded } from './rewarded';
 export type {
   EzstandaloneGlobal,
   EzstandaloneCmdQueue,
   EzoicCmdFn,
   TcfData,
   TcfApi,
+  EzRewardedGlobal,
 } from './global';

@@ -1,9 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { CMP_SCRIPT_URLS, STANDALONE_SCRIPT_URL } from './constants';
-import { CMD_QUEUE_STUB, injectEzoicScripts } from './scripts';
+import {
+  CMD_QUEUE_STUB,
+  REWARDED_CMD_QUEUE_STUB,
+  ensureRewardedCmdQueue,
+  injectEzoicScripts,
+  injectRewardedLoader,
+} from './scripts';
 
 const [CMP1, CMP2] = CMP_SCRIPT_URLS;
 const STUB_SELECTOR = 'script[data-ezoic-vue-sdk="cmd-stub"]';
+const REWARDED_STUB_SELECTOR = 'script[data-ezoic-vue-sdk="rewarded-cmd-stub"]';
+const REWARDED_LOADER_URL =
+  'https://example.com/porpoiseant/ezadloadrewarded.js';
 
 function headScriptOrder(): string[] {
   return [...document.head.querySelectorAll('script')].map(
@@ -14,11 +23,13 @@ function headScriptOrder(): string[] {
 beforeEach(() => {
   document.head.innerHTML = '';
   delete window.ezstandalone;
+  delete window.ezRewardedAds;
 });
 
 afterEach(() => {
   document.head.innerHTML = '';
   delete window.ezstandalone;
+  delete window.ezRewardedAds;
 });
 
 describe('injectEzoicScripts', () => {
@@ -133,6 +144,61 @@ describe('injectEzoicScripts', () => {
     injectEzoicScripts({ analyticsScriptUrl: analytics });
     expect(
       document.querySelectorAll(`script[src="${analytics}"]`),
+    ).toHaveLength(1);
+  });
+});
+
+describe('ensureRewardedCmdQueue', () => {
+  it('creates window.ezRewardedAds.cmd as an array', () => {
+    ensureRewardedCmdQueue();
+    expect(Array.isArray(window.ezRewardedAds?.cmd)).toBe(true);
+  });
+
+  it('preserves an existing host-provided queue', () => {
+    const cmd: Array<() => void> = [];
+    window.ezRewardedAds = { cmd };
+    ensureRewardedCmdQueue();
+    expect(window.ezRewardedAds.cmd).toBe(cmd);
+  });
+});
+
+describe('injectRewardedLoader', () => {
+  it('injects the rewarded stub before the async loader', () => {
+    injectRewardedLoader(REWARDED_LOADER_URL);
+
+    const order = [...document.head.querySelectorAll('script')].map(
+      (el) => el.getAttribute('src') ?? '[rewarded-stub]',
+    );
+    expect(order).toEqual(['[rewarded-stub]', REWARDED_LOADER_URL]);
+
+    const stub = document.querySelector(REWARDED_STUB_SELECTOR);
+    expect(stub?.textContent).toBe(REWARDED_CMD_QUEUE_STUB);
+
+    const loader = document.querySelector<HTMLScriptElement>(
+      `script[src="${REWARDED_LOADER_URL}"]`,
+    );
+    expect(loader?.async).toBe(true);
+    expect(Array.isArray(window.ezRewardedAds?.cmd)).toBe(true);
+  });
+
+  it('is idempotent: repeated calls add no duplicate loader or stub', () => {
+    injectRewardedLoader(REWARDED_LOADER_URL);
+    injectRewardedLoader(REWARDED_LOADER_URL);
+    injectRewardedLoader(REWARDED_LOADER_URL);
+
+    expect(
+      document.querySelectorAll(`script[src="${REWARDED_LOADER_URL}"]`),
+    ).toHaveLength(1);
+    expect(document.querySelectorAll(REWARDED_STUB_SELECTOR)).toHaveLength(1);
+  });
+
+  it('tolerates a host-provided window.ezRewardedAds (no stub injected)', () => {
+    window.ezRewardedAds = { cmd: [] };
+    injectRewardedLoader(REWARDED_LOADER_URL);
+
+    expect(document.querySelector(REWARDED_STUB_SELECTOR)).toBeNull();
+    expect(
+      document.querySelectorAll(`script[src="${REWARDED_LOADER_URL}"]`),
     ).toHaveLength(1);
   });
 });

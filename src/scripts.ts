@@ -4,8 +4,10 @@
  * Injects, in Ezoic's required order and idempotently: the two Gatekeeper CMP
  * consent scripts (each with `data-cfasync="false"` set before `src`), the
  * pre-load cmd-queue stub, then the async standalone ad bundle, then an optional
- * analytics loader. Every function here assumes a browser DOM — callers must
- * guard against server-side rendering before invoking them.
+ * analytics loader. It also injects the optional, publisher-specific rewarded
+ * loader (with its own pre-load stub) when a URL is supplied. Every function
+ * here assumes a browser DOM — callers must guard against server-side rendering
+ * before invoking them.
  *
  * @see https://docs.ezoic.com/docs/ezoicads/integration/
  */
@@ -18,6 +20,9 @@ const SDK_MARKER_ATTR = 'data-ezoic-vue-sdk';
 /** Marker value identifying the injected cmd-queue stub script. */
 const CMD_STUB_MARKER = 'cmd-stub';
 
+/** Marker value identifying the injected rewarded cmd-queue stub script. */
+const REWARDED_CMD_STUB_MARKER = 'rewarded-cmd-stub';
+
 /**
  * The pre-load cmd-queue stub, matching Ezoic's published header snippet. It
  * runs before the standalone bundle so `ezstandalone.cmd.push(...)` is always
@@ -25,6 +30,13 @@ const CMD_STUB_MARKER = 'cmd-stub';
  */
 export const CMD_QUEUE_STUB =
   'window.ezstandalone = window.ezstandalone || {}; window.ezstandalone.cmd = window.ezstandalone.cmd || [];';
+
+/**
+ * The pre-load rewarded cmd-queue stub. It runs before the rewarded loader so
+ * `ezRewardedAds.cmd.push(...)` is always safe to call.
+ */
+export const REWARDED_CMD_QUEUE_STUB =
+  'window.ezRewardedAds = window.ezRewardedAds || {}; window.ezRewardedAds.cmd = window.ezRewardedAds.cmd || [];';
 
 function headElement(): HTMLHeadElement {
   const head = document.head ?? document.getElementsByTagName('head')[0];
@@ -170,4 +182,60 @@ export function injectEzoicScripts(
   if (analyticsScriptUrl) {
     injectExternalScript(analyticsScriptUrl, { async: true });
   }
+}
+
+/**
+ * Ensures `window.ezRewardedAds.cmd` exists so rewarded callbacks can be
+ * queued. Mirrors {@link ensureCmdQueue} for the rewarded global. Assumes a
+ * browser environment; callers guard SSR.
+ */
+export function ensureRewardedCmdQueue(): void {
+  if (!window.ezRewardedAds) window.ezRewardedAds = {};
+  if (!window.ezRewardedAds.cmd) {
+    const queue: EzoicCmdFn[] = [];
+    window.ezRewardedAds.cmd = queue;
+  }
+}
+
+/**
+ * Injects the inline rewarded cmd-queue stub and ensures the queue exists.
+ *
+ * Mirrors {@link ensureCmdStub}: the stub script is injected (before the
+ * loader) only when neither a prior SDK injection nor a host-provided
+ * `window.ezRewardedAds` is present. The queue is then guaranteed in JS so the
+ * composable works even if the injected inline script has not executed yet
+ * (strict CSP, tests).
+ */
+function ensureRewardedCmdStub(): void {
+  const alreadyInjected =
+    document.querySelector(
+      `script[${SDK_MARKER_ATTR}="${REWARDED_CMD_STUB_MARKER}"]`,
+    ) !== null;
+  const hostProvidesQueue = typeof window.ezRewardedAds !== 'undefined';
+
+  if (!alreadyInjected && !hostProvidesQueue) {
+    const el = document.createElement('script');
+    el.setAttribute(SDK_MARKER_ATTR, REWARDED_CMD_STUB_MARKER);
+    el.textContent = REWARDED_CMD_QUEUE_STUB;
+    headElement().appendChild(el);
+  }
+
+  ensureRewardedCmdQueue();
+}
+
+/**
+ * Injects the publisher-specific rewarded-ads loader
+ * (`/porpoiseant/ezadloadrewarded.js`), preceded by the rewarded cmd-queue
+ * stub so `ezRewardedAds.cmd.push(...)` is safe before it initializes.
+ *
+ * Idempotent: {@link findExternalScript} dedups the loader and the stub marker
+ * dedups the inline stub, so repeated calls add nothing. Browser-only — callers
+ * must not invoke it during SSR. The loader URL is publisher-specific, so it is
+ * never hardcoded; it is injected only when a URL is supplied.
+ *
+ * @param loaderUrl the publisher's rewarded loader URL.
+ */
+export function injectRewardedLoader(loaderUrl: string): void {
+  ensureRewardedCmdStub();
+  injectExternalScript(loaderUrl, { async: true });
 }

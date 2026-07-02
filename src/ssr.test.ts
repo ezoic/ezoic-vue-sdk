@@ -8,7 +8,9 @@ import {
   useEzoic,
   useEzoicConsent,
   useEzoicPageView,
+  useEzoicRewarded,
 } from './index';
+import type { RewardedRequestResult, RewardedShowResult } from './index';
 
 /**
  * These tests run in the Node environment (no `window`/`document`). Any access
@@ -105,5 +107,29 @@ describe('server-side rendering', () => {
     const app = createApp(Comp);
     const html = await renderToString(app);
     expect(html).toContain('>false<');
+  });
+
+  it('useEzoicRewarded renders and resolves typed failures without touching window', async () => {
+    let requestResult: Promise<RewardedRequestResult> | undefined;
+    let showResult: Promise<RewardedShowResult> | undefined;
+    const Comp = defineComponent({
+      setup() {
+        const rewarded = useEzoicRewarded();
+        requestResult = rewarded.request();
+        showResult = rewarded.show();
+        rewarded.register();
+        return () => h('div', { id: 'rewarded' }, String(rewarded.ready.value));
+      },
+    });
+
+    const app = createApp(Comp);
+    const html = await renderToString(app);
+    expect(html).toContain('id="rewarded"');
+    expect(html).toContain('>false<');
+    await expect(requestResult).resolves.toMatchObject({ status: false });
+    await expect(showResult).resolves.toMatchObject({
+      status: false,
+      reward: false,
+    });
   });
 });

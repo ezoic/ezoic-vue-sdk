@@ -6,7 +6,20 @@
  * extend {@link EzstandaloneGlobal} with the SPA, consent, and video methods
  * they wrap.
  */
-import type { EzoicConfigOptions, ShowAdsArg } from './types';
+import type {
+  EzoicConfigOptions,
+  RewardedContentLockerAction,
+  RewardedContentLockerConfig,
+  RewardedRequestAndShowConfig,
+  RewardedRequestConfig,
+  RewardedRequestResult,
+  RewardedRequestWithOverlayConfig,
+  RewardedShowConfig,
+  RewardedShowResult,
+  RewardedOverlayText,
+  RewardedSiteWidePlacements,
+  ShowAdsArg,
+} from './types';
 
 /** A function queued on `ezstandalone.cmd`. */
 export type EzoicCmdFn = () => void;
@@ -105,6 +118,12 @@ export interface EzstandaloneGlobal {
   setDisablePersonalizedStatistics?: (disable: boolean) => void;
   /** Opt the visitor out of personalized ads. */
   setDisablePersonalizedAds?: (disable: boolean) => void;
+  /**
+   * Declare the site-wide rewarded ad formats. Turns on the ambient formats
+   * (anchor, interstitial, video, side rails) that back the rewarded
+   * experience; each defaults to `true` when the placements object is omitted.
+   */
+  initRewardedAds?: (siteWidePlacements?: RewardedSiteWidePlacements) => void;
 }
 
 /**
@@ -144,10 +163,65 @@ export interface TcfApi {
   ): void;
 }
 
+/**
+ * Shape of `window.ezRewardedAds` — the Ezoic rewarded-ads global. It follows
+ * the same lifecycle as `ezstandalone`: before the rewarded loader script
+ * initializes, only the `cmd` queue exists on the pre-load stub; the real
+ * methods appear once the loader replaces the stub with its instance. Callers
+ * therefore push work onto `cmd` (which runs post-init, or immediately once
+ * initialized) and still guard each method with optional chaining in case an
+ * ad blocker prevented the loader from running.
+ *
+ * Every method delivers its outcome through a callback — none return a usable
+ * value.
+ */
+export interface EzRewardedGlobal {
+  /** `true` once the rewarded loader has initialized. */
+  ready?: boolean;
+  /**
+   * The rewarded command queue. A plain array before init; an immediate-execute
+   * wrapper afterwards. `push(fn)` is the only operation this SDK relies on.
+   */
+  cmd?: EzstandaloneCmdQueue;
+  /** Register a rewarded pageview for tracking (idempotent per pageview). */
+  register?: () => void;
+  /** Request a rewarded ad; the callback reports availability. */
+  request?: (
+    callback: (data: RewardedRequestResult) => void,
+    config?: RewardedRequestConfig,
+  ) => void;
+  /** Show a previously requested rewarded ad; the callback reports the reward. */
+  show?: (
+    callback: (data: RewardedShowResult) => void,
+    config?: RewardedShowConfig,
+  ) => void;
+  /** Request and immediately show a rewarded ad in one call. */
+  requestAndShow?: (
+    callback: (data: RewardedShowResult) => void,
+    config?: RewardedRequestAndShowConfig,
+  ) => void;
+  /** Prompt the visitor with an overlay, then request and show a rewarded ad. */
+  requestWithOverlay?: (
+    callback: (data: RewardedShowResult) => void,
+    text?: RewardedOverlayText,
+    config?: RewardedRequestWithOverlayConfig,
+  ) => void;
+  /**
+   * Gate content behind a rewarded ad. `action` is a URL to redirect to, or a
+   * function to run, after the reward is earned.
+   */
+  contentLocker?: (
+    action: RewardedContentLockerAction,
+    config?: RewardedContentLockerConfig,
+  ) => void;
+}
+
 declare global {
   interface Window {
     ezstandalone?: EzstandaloneGlobal;
     /** IAB TCF v2.2 CMP API, present once a TCF CMP (e.g. Ezoic Gatekeeper) loads. */
     __tcfapi?: TcfApi;
+    /** Ezoic rewarded-ads global, present once the rewarded loader initializes. */
+    ezRewardedAds?: EzRewardedGlobal;
   }
 }

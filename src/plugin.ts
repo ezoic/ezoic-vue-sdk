@@ -10,7 +10,11 @@
 import { nextTick, readonly, ref, type App, type Plugin, type Ref } from 'vue';
 import { createEzoicApi } from './api';
 import { ezoicInjectionKey } from './keys';
-import { ensureCmdQueue, injectEzoicScripts } from './scripts';
+import {
+  ensureCmdQueue,
+  injectEzoicScripts,
+  injectRewardedLoader,
+} from './scripts';
 import type { EzoicApi, EzoicPluginOptions } from './types';
 
 function createPush(): EzoicApi['push'] {
@@ -38,6 +42,13 @@ export const EzoicPlugin: Plugin<[EzoicPluginOptions?]> = {
       cmp: options.cmp,
       analyticsScriptUrl: options.analyticsScriptUrl,
     });
+
+    // Rewarded ads use a separate, publisher-specific loader. Inject it only
+    // when the publisher supplies its URL — the host is not fixed, so it is
+    // never hardcoded, and absence keeps this a no-op.
+    if (options.rewardedLoaderUrl) {
+      injectRewardedLoader(options.rewardedLoaderUrl);
+    }
 
     // SPA mode: declare the page a single-page app at boot so a later
     // `showAds()` on a route change becomes a new pageview instead of an

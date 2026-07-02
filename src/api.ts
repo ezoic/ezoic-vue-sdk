@@ -15,7 +15,12 @@
  * returns nothing, so a getter form would always yield `undefined`.
  */
 import type { Ref } from 'vue';
-import type { EzoicApi, EzoicConfigOptions, ShowAdsArg } from './types';
+import type {
+  EzoicApi,
+  EzoicConfigOptions,
+  RewardedSiteWidePlacements,
+  ShowAdsArg,
+} from './types';
 
 /**
  * Assembles a complete {@link EzoicApi} from a readiness ref and a `push`
@@ -120,5 +125,7 @@ export function createEzoicApi(
       ),
     setDisablePersonalizedAds: (disable: boolean): void =>
       push(() => window.ezstandalone?.setDisablePersonalizedAds?.(disable)),
+    initRewardedAds: (placements?: RewardedSiteWidePlacements): void =>
+      push(() => window.ezstandalone?.initRewardedAds?.(placements)),
   };
 }

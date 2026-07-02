@@ -5,10 +5,12 @@ Official [Ezoic](https://www.ezoic.com/) ads SDK for Vue 3.
 > **Status: 0.x, in active development.** This package is being built out
 > incrementally. It currently ships script management (the `EzoicPlugin`), the
 > `useEzoic()` composable, the `<EzoicAd>` display-placeholder component (numeric
-> ids and zero-config semantic `location` names), and single-page-app routing
-> (`useEzoicPageView()` plus the plugin's `spa`/`router` options), on top of the
-> verified foundation (public script URLs, the placeholder DOM contract, and
-> shared types). CMP/consent helpers, rewarded ads, and video are on the roadmap
+> ids and zero-config semantic `location` names), single-page-app routing
+> (`useEzoicPageView()` plus the plugin's `spa`/`router` options), CMP/consent
+> helpers (`useEzoicConsent()` plus `config()` and the format toggles), and
+> rewarded ads (`useEzoicRewarded()` plus `initRewardedAds()` and the plugin's
+> `rewardedLoaderUrl` option), on top of the verified foundation (public script
+> URLs, the placeholder DOM contract, and shared types). Video is on the roadmap
 > below.
 
 ## Install
@@ -341,6 +343,97 @@ const { tcfLoaded, consentString, gdprApplies, eventStatus } =
 </template>
 ```
 
+## Rewarded ads
+
+Rewarded ads let a visitor opt in to watch an ad in exchange for a reward (unlock
+content, in-game currency, etc.). They use a separate, publisher-specific loader
+script, so enable them by passing its URL to the plugin:
+
+```ts
+import { createApp } from 'vue';
+import { EzoicPlugin } from '@ezoic/vue-sdk';
+import App from './App.vue';
+
+createApp(App)
+  .use(EzoicPlugin, {
+    // Your publisher-specific rewarded loader. Find the exact host in your
+    // Ezoic dashboard / integration docs — it is served from your Ezoic ad
+    // host (e.g. https://go.ezodn.com/...), not a fixed URL.
+    rewardedLoaderUrl:
+      'https://YOUR-EZOIC-LOADER-HOST/porpoiseant/ezadloadrewarded.js',
+  })
+  .mount('#app');
+```
+
+The loader is injected async, after the standalone bundle, and only when the
+option is set. Injection is idempotent and SSR-safe.
+
+### `useEzoicRewarded()`
+
+The composable wraps `window.ezRewardedAds`. Each callback-style method returns
+a Promise that settles when the ad flow resolves (including no-fill and
+cancellation — no timers are involved), and a reactive `status` tracks the
+lifecycle (`idle` → `initiated` → `displayed` → `closed`):
+
+```vue
+<script setup lang="ts">
+import { useEzoicRewarded } from '@ezoic/vue-sdk';
+
+const { requestAndShow, status, ready } = useEzoicRewarded();
+
+async function unlock() {
+  const r = await requestAndShow({ rewardName: 'premium_article' });
+  if (r.reward) {
+    // grant the reward — the visitor watched the ad
+  }
+}
+</script>
+
+<template>
+  <button :disabled="!ready" @click="unlock">Watch an ad to unlock</button>
+  <p>Rewarded status: {{ status }}</p>
+</template>
+```
+
+If you inject the loader yourself instead of via the plugin, pass its URL to the
+composable: `useEzoicRewarded({ loaderUrl: '…/porpoiseant/ezadloadrewarded.js' })`.
+Either way the composable shares the same `ezRewardedAds` global.
+
+The full method set: `register()` (fire-and-forget pageview tracking),
+`request(config?)`, `show(config?)`, `requestAndShow(config?)`,
+`requestWithOverlay(text?, config?)`, and `contentLocker(action, config?)`. When
+rewarded ads are unavailable (no browser, or the loader is not present) the
+promises resolve a typed failure (`status: false`) rather than rejecting.
+
+### Content locker
+
+`contentLocker` gates content behind a rewarded ad. `action` is either a URL to
+redirect to, or a function to run, once the reward is earned; the returned
+Promise resolves with the request result when the ad is ready:
+
+```ts
+const { contentLocker } = useEzoicRewarded();
+
+// Run a callback after the reward is earned:
+await contentLocker(() => revealArticle(), { rewardName: 'premium_article' });
+
+// …or redirect to a URL after the reward is earned:
+await contentLocker('https://example.com/premium');
+```
+
+### Site-wide setup: `initRewardedAds()`
+
+The ambient rewarded formats (anchor, interstitial, video, side rails) are
+declared once via `initRewardedAds()`, which lives on `useEzoic()` (it is an
+`ezstandalone` method, not part of `useEzoicRewarded`). Each format defaults to
+`true`:
+
+```ts
+const ezoic = useEzoic();
+ezoic.initRewardedAds(); // enable all four
+ezoic.initRewardedAds({ video: false }); // enable all except video
+```
+
 ## Foundation exports
 
 The SDK also exposes the low-level building blocks:
@@ -377,7 +470,7 @@ placeholder element itself:
 4. SPA routing (vue-router integration, Nuxt recipe) ✅
 5. Zero-config placements (`<EzoicAd location="under_first_paragraph" />`) ✅
 6. CMP/consent + typed `config()` ✅
-7. Rewarded ads (`useEzoicRewarded()`)
+7. Rewarded ads (`useEzoicRewarded()`) ✅
 8. Video (`<EzoicVideo>`, `<HumixVideo>`)
 9. Docs + demo app
 

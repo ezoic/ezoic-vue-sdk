@@ -243,6 +243,26 @@ describe('createEzoicApi', () => {
     await rejection.catch(() => {});
   });
 
+  it('initRewardedAds forwards the placements through the command queue', () => {
+    const initRewardedAds = vi.fn();
+    window.ezstandalone = { cmd: { push: immediatePush }, initRewardedAds };
+    const api = createEzoicApi(ref(false), immediatePush);
+
+    api.initRewardedAds({ anchor: false, video: true });
+
+    expect(initRewardedAds).toHaveBeenCalledTimes(1);
+    expect(initRewardedAds).toHaveBeenCalledWith({
+      anchor: false,
+      video: true,
+    });
+  });
+
+  it('initRewardedAds is a safe no-op when the bundle exposes no method', () => {
+    window.ezstandalone = { cmd: { push: immediatePush } };
+    const api = createEzoicApi(ref(false), immediatePush);
+    expect(() => api.initRewardedAds()).not.toThrow();
+  });
+
   it('config, toggles and consent setters are safe no-ops when the bundle exposes no methods', async () => {
     window.ezstandalone = { cmd: { push: immediatePush } };
     const api = createEzoicApi(ref(false), immediatePush);

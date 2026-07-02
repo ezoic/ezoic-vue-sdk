@@ -23,14 +23,19 @@ function drainCmdQueue(): void {
   for (const fn of pending) fn();
 }
 
+const REWARDED_LOADER_URL =
+  'https://example.com/porpoiseant/ezadloadrewarded.js';
+
 beforeEach(() => {
   document.head.innerHTML = '';
   delete window.ezstandalone;
+  delete window.ezRewardedAds;
 });
 
 afterEach(() => {
   document.head.innerHTML = '';
   delete window.ezstandalone;
+  delete window.ezRewardedAds;
 });
 
 describe('EzoicPlugin install', () => {
@@ -91,6 +96,28 @@ describe('EzoicPlugin install', () => {
     app.use(EzoicPlugin);
     const api = app.runWithContext(() => useEzoic());
     expect(api.ready.value).toBe(true);
+  });
+
+  it('injects the rewarded loader when rewardedLoaderUrl is set', () => {
+    createApp({ render: () => null }).use(EzoicPlugin, {
+      rewardedLoaderUrl: REWARDED_LOADER_URL,
+    });
+    expect(
+      document.querySelector(`script[src="${REWARDED_LOADER_URL}"]`),
+    ).not.toBeNull();
+    expect(
+      document.querySelector('script[data-ezoic-vue-sdk="rewarded-cmd-stub"]'),
+    ).not.toBeNull();
+  });
+
+  it('does not inject a rewarded loader without rewardedLoaderUrl', () => {
+    createApp({ render: () => null }).use(EzoicPlugin);
+    expect(
+      document.querySelector('script[src*="ezadloadrewarded"]'),
+    ).toBeNull();
+    expect(
+      document.querySelector('script[data-ezoic-vue-sdk="rewarded-cmd-stub"]'),
+    ).toBeNull();
   });
 
   it('respects the cmp: false option', () => {
