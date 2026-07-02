@@ -7,8 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `<EzoicAd location="...">` placements now default `required: true` (sol only
+  treats a zero-config 900-range id as zero-config when it is required). Opt a
+  location out with `:required="false"`. Numeric `id` placements are unchanged —
+  `required` still defaults to `false`.
+- README ad-placement examples updated to the canonical `sizes` + `required`
+  pairing: every `<EzoicAd>` example now passes explicit `sizes`, and the
+  imperative `showAds`/`displayMore` examples use the object form.
+
 ### Added
 
+- Dev-mode console warning when an `<EzoicAd>` placement is shown without
+  `sizes`. Standalone placeholders have no dashboard sizing, so the warning
+  points to the canonical fix (`:sizes="['728x90', '320x50']"`). It fires once
+  per shown placement and folds away in a consumer's production build.
 - Rewarded ads. New composable `useEzoicRewarded(options?)` wraps
   `window.ezRewardedAds`: `register()` (fire-and-forget pageview tracking) plus
   promise-returning `request`, `show`, `requestAndShow`, `requestWithOverlay`,

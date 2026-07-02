@@ -39,6 +39,7 @@ import {
   type PropType,
 } from 'vue';
 import { claimAdId, isAdIdClaimed, queueShowAd, releaseAdId } from './adBatch';
+import { isDevMode } from './env';
 import { isKnownLocation, resolveLocationIdFromMap } from './locations';
 import { isValidPlaceholderId, resolvedPlaceholderDomId } from './placeholder';
 import type { ShowAdsArg, ShowAdsPlaceholder } from './types';
@@ -79,9 +80,12 @@ export const EzoicAd = defineComponent({
      */
     location: { type: String, default: undefined },
     /**
-     * Mark the placeholder as required (`saContext.rid`). Defaults to `false`.
+     * Mark the placeholder as required (`saContext.rid`). Defaults to `true`
+     * for `location` placements — sol only treats a zero-config (900-range) id
+     * as zero-config when it is required — and to `false` for numeric `id`
+     * placements. Opt a location out with `:required="false"`.
      */
-    required: { type: Boolean, default: false },
+    required: { type: Boolean, default: undefined },
     /**
      * Explicit ad sizes as `"<width>x<height>"` strings (e.g. `"728x90"`).
      * ezstandalone skips any entry that does not match that shape.
@@ -143,7 +147,26 @@ export const EzoicAd = defineComponent({
       owns = true;
       ownedId = id;
       resolvedId.value = id;
-      queueShowAd(toShowAdsArg(id, props.required, props.sizes), ez.push);
+      if (
+        isDevMode() &&
+        !(Array.isArray(props.sizes) && props.sizes.length > 0)
+      ) {
+        const where = hasLocation ? ` (location "${props.location}")` : '';
+        console.warn(
+          `[ezoic-vue-sdk] <EzoicAd> placeholder id ${id}${where} was shown ` +
+            'without `sizes`. Standalone placeholders have no dashboard sizing, ' +
+            'so a placement with no sizes yields no size-driven ad. Pass explicit ' +
+            `sizes, e.g. :sizes="['728x90', '320x50']".`,
+        );
+      }
+      // Read `required` live at claim time (a location claims after the async
+      // id resolve, so a snapshot could go stale if the parent flips the prop).
+      // `required` defaults to `true` for a location (zero-config ids are only
+      // treated as zero-config server-side when required) and `false` for a
+      // numeric id; `??` only falls through on null/undefined, so an explicit
+      // `:required="false"` stays `false`.
+      const effectiveRequired = props.required ?? hasLocation;
+      queueShowAd(toShowAdsArg(id, effectiveRequired, props.sizes), ez.push);
       return true;
     }
 

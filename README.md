@@ -73,7 +73,10 @@ ezoic.push(() => {
 
 // Typed passthroughs to the ezstandalone display methods. Each is queued on
 // the command queue, so it is safe to call before the bundle loads.
-ezoic.showAds(101, { id: 102, required: true, sizes: ['728x90'] });
+ezoic.showAds(
+  { id: 101, required: true, sizes: ['728x90', '320x50'] },
+  { id: 102, required: true, sizes: ['300x250'] },
+);
 ezoic.displayMore(201); // request more placeholders (infinite scroll)
 ezoic.destroyPlaceholders(101, 102);
 ezoic.destroyAll();
@@ -93,11 +96,15 @@ import { EzoicAd } from '@ezoic/vue-sdk';
 </script>
 
 <template>
-  <EzoicAd :id="101" />
+  <EzoicAd :id="101" required :sizes="['728x90', '320x50']" />
   <EzoicAd :id="102" required :sizes="['728x90', '970x250']" />
 </template>
 ```
 
+- **Always pass `sizes`.** Standalone placeholders have no dashboard-configured
+  sizing, so the `sizes` you pass are what create the ad's placements — a
+  placement shown without `sizes` yields no size-driven ad. The SDK logs a
+  dev-mode console warning when an `<EzoicAd>` is shown without `sizes`.
 - **Batched requests.** Every `<EzoicAd>` that mounts in the same tick is
   coalesced into a single `showAds(...)` call carrying all their ids (the ad
   bundle adds its own debounce on top).
@@ -125,14 +132,20 @@ import { EzoicAd } from '@ezoic/vue-sdk';
 </script>
 
 <template>
-  <EzoicAd location="top_of_page" />
-  <EzoicAd location="under_first_paragraph" />
-  <EzoicAd location="mid_content" required />
+  <EzoicAd location="top_of_page" :sizes="['728x90', '320x50']" />
+  <EzoicAd location="under_first_paragraph" :sizes="['300x250']" />
+  <EzoicAd location="mid_content" :sizes="['300x250']" />
 </template>
 ```
 
 - **`id` or `location`, never both.** Pass exactly one. Passing both, or
   neither, logs a warning and renders nothing.
+- **`location` placements default `required: true`.** That is what marks them
+  zero-config server-side (sol only treats a 900-range id as zero-config when it
+  is required). Opt out with `:required="false"`. Numeric `id` placements keep
+  `required` defaulting to `false`.
+- **`location` placements must pass `sizes`.** Like numeric ids, they have no
+  dashboard sizing; the SDK warns loudly in dev when `sizes` is omitted.
 - **How it resolves.** When the ad bundle has loaded, the SDK uses its
   `GetGeneratedIdAsync(location)` helper (which finds a free slot and can
   allocate a fresh id for a repeated location). Before the bundle is available,
@@ -150,7 +163,8 @@ import { EzoicAd } from '@ezoic/vue-sdk';
 - **Client-only.** Because the name resolves on the client, a `location`
   placeholder renders nothing during SSR and appears after mount. Use a numeric
   `id` if you need the div present in the server-rendered HTML.
-- **`required` and `sizes`** work exactly as they do with a numeric `id`.
+- **`sizes`** works exactly as it does with a numeric `id` (and is just as
+  required). `required` differs only in its default (see above).
 
 `required`/`sizes`, batching, teardown on unmount, and the bare-div rule all
 apply to `location` placeholders just like numeric ones.
@@ -254,7 +268,10 @@ do it imperatively, use `displayMore` (or `showAds` with the new ids) from
 ```ts
 const ezoic = useEzoic();
 // After appending divs for placeholders 210 and 211:
-ezoic.displayMore(210, 211);
+ezoic.displayMore(
+  { id: 210, required: true, sizes: ['300x250'] },
+  { id: 211, required: true, sizes: ['300x250'] },
+);
 ```
 
 ## Consent and configuration
