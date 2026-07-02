@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `EzoicPlugin` (`app.use(EzoicPlugin, options)`): injects the Ezoic scripts in
+  the required order — Gatekeeper CMP consent scripts (with
+  `data-cfasync="false"` set before `src`), then the cmd-queue stub, then the
+  async standalone bundle, then an optional analytics loader. Injection is
+  idempotent (never double-injects, tolerates scripts already in the host HTML)
+  and SSR-safe (no `window`/`document` during server render; Nuxt 3 compatible).
+  Options: `cmp` (default `true`) and `analyticsScriptUrl`.
+- `useEzoic()` composable exposing the `EzoicApi`: a reactive `ready` flag and a
+  `push(fn)` helper that queues work on the ezstandalone command queue (no-op
+  during SSR).
+- `ezoicInjectionKey` and the `EzoicPluginOptions`, `EzoicApi`,
+  `EzstandaloneGlobal`, and `EzoicCmdFn` types.
+- CI workflow now declares a least-privilege `permissions: contents: read`.
 - Package skeleton: TypeScript, dual ESM/CJS build via Vite library mode,
   `vue` `^3.4` peer dependency, type declarations emitted with
   `vite-plugin-dts`.
