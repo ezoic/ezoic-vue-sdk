@@ -8,6 +8,7 @@
  * client. Works under Nuxt 3.
  */
 import { readonly, ref, type App, type Plugin, type Ref } from 'vue';
+import { createEzoicApi } from './api';
 import { ezoicInjectionKey } from './keys';
 import { ensureCmdQueue, injectEzoicScripts } from './scripts';
 import type { EzoicApi, EzoicPluginOptions } from './types';
@@ -27,10 +28,7 @@ export const EzoicPlugin: Plugin<[EzoicPluginOptions?]> = {
     const ready = ref(false);
     const push = createPush();
 
-    const api: EzoicApi = {
-      ready: readonly(ready) as Readonly<Ref<boolean>>,
-      push,
-    };
+    const api = createEzoicApi(readonly(ready) as Readonly<Ref<boolean>>, push);
     app.provide(ezoicInjectionKey, api);
 
     // Server render: API is provided, but never touch the DOM.

@@ -3,11 +3,11 @@
 Official [Ezoic](https://www.ezoic.com/) ads SDK for Vue 3.
 
 > **Status: 0.x, in active development.** This package is being built out
-> incrementally. It currently ships script management (the `EzoicPlugin`) and
-> the `useEzoic()` composable, on top of the verified foundation (public script
-> URLs, the placeholder DOM contract, and shared types). The `<EzoicAd>`
-> component, single-page-app routing, CMP/consent helpers, rewarded ads, and
-> video are on the roadmap below.
+> incrementally. It currently ships script management (the `EzoicPlugin`), the
+> `useEzoic()` composable, and the `<EzoicAd>` display-placeholder component, on
+> top of the verified foundation (public script URLs, the placeholder DOM
+> contract, and shared types). Single-page-app routing, CMP/consent helpers,
+> rewarded ads, and video are on the roadmap below.
 
 ## Install
 
@@ -62,9 +62,50 @@ ezoic.ready;
 // Queue work on the ezstandalone command queue (runs after init, or
 // immediately if init already completed). No-op during SSR.
 ezoic.push(() => {
-  // e.g. ezstandalone.showAds(...) once display support lands
+  /* raw ezstandalone access */
 });
+
+// Typed passthroughs to the ezstandalone display methods. Each is queued on
+// the command queue, so it is safe to call before the bundle loads.
+ezoic.showAds(101, { id: 102, required: true, sizes: ['728x90'] });
+ezoic.displayMore(201); // request more placeholders (infinite scroll)
+ezoic.destroyPlaceholders(101, 102);
+ezoic.destroyAll();
+ezoic.refreshAds(101);
+ezoic.isEzoicUser(); // A/B group check (false until the bundle loads)
 ```
+
+## Display ads
+
+Render a placeholder with `<EzoicAd>`. It outputs a bare
+`<div id="ezoic-pub-ad-placeholder-<id>">` and requests the ad through the ad
+bundle:
+
+```vue
+<script setup lang="ts">
+import { EzoicAd } from '@ezoic/vue-sdk';
+</script>
+
+<template>
+  <EzoicAd :id="101" />
+  <EzoicAd :id="102" required :sizes="['728x90', '970x250']" />
+</template>
+```
+
+- **Batched requests.** Every `<EzoicAd>` that mounts in the same tick is
+  coalesced into a single `showAds(...)` call carrying all their ids (the ad
+  bundle adds its own debounce on top).
+- **`id`** must be an integer 1–999. `required` and `sizes` map to the
+  `ezstandalone.showAds` object form.
+- **Automatic teardown.** Unmounting an `<EzoicAd>` calls
+  `destroyPlaceholders(id)`.
+- **Duplicate guard.** Mounting two ads with the same id logs a warning and
+  only requests the id once.
+- **Bare by design.** The placeholder div carries no styling — a `class` or
+  `style` on `<EzoicAd>` is intentionally not forwarded to it (Ezoic controls
+  sizing). Wrap `<EzoicAd>` in your own element to position it.
+- **SSR-safe.** The div renders during server render; the ad request happens
+  only on the client after mount.
 
 ## Foundation exports
 
@@ -94,7 +135,7 @@ placeholder element itself:
 
 1. Package skeleton ✅
 2. Plugin + script management (`app.use(EzoicPlugin, options)`) ✅
-3. Display ads (`<EzoicAd :id="101" />`)
+3. Display ads (`<EzoicAd :id="101" />`) ✅
 4. SPA routing (vue-router integration, Nuxt recipe)
 5. Zero-config placements (`<EzoicAd location="under_first_paragraph" />`)
 6. CMP/consent + typed `config()`

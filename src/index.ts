@@ -3,9 +3,9 @@
  *
  * This 0.x release ships the verified foundation the rest of the SDK builds on:
  * the public Ezoic script URLs, the placeholder DOM contract, shared types, the
- * `EzoicPlugin` (script management) and the `useEzoic()` composable. The
- * `<EzoicAd>` component, SPA routing, CMP/consent helpers, rewarded ads, and
- * video land in later releases — see CHANGELOG.md.
+ * `EzoicPlugin` (script management), the `useEzoic()` composable, and the
+ * `<EzoicAd>` display-placeholder component. SPA routing, CMP/consent helpers,
+ * rewarded ads, and video land in later releases — see CHANGELOG.md.
  */
 export {
   STANDALONE_SCRIPT_URL,
@@ -16,6 +16,7 @@ export {
 } from './constants';
 export { isValidPlaceholderId, placeholderDomId } from './placeholder';
 export { EzoicPlugin } from './plugin';
+export { EzoicAd } from './EzoicAd';
 export { useEzoic } from './useEzoic';
 export { ezoicInjectionKey } from './keys';
 export type {

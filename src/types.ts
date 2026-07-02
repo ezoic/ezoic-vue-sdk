@@ -17,7 +17,11 @@ export interface EzoicPluginOptions {
 
 /**
  * The runtime API the Ezoic plugin provides and {@link useEzoic} returns.
- * Later releases extend this with `showAds`/`destroyPlaceholders` passthroughs.
+ *
+ * Alongside `ready` and the low-level `push` helper it exposes typed
+ * passthroughs to the `ezstandalone` display methods. Each passthrough queues
+ * its call on the command queue (via {@link push}), so it is safe to call
+ * before the bundle has loaded and is a no-op during server-side rendering.
  */
 export interface EzoicApi {
   /**
@@ -33,6 +37,36 @@ export interface EzoicApi {
    * during server-side rendering.
    */
   push: (fn: () => void) => void;
+  /**
+   * Request ads for the given placeholders. With no arguments, ezstandalone
+   * scans the page for every placeholder div. `<EzoicAd>` batches its own
+   * mounts into a single `showAds` call; use this for imperative control.
+   */
+  showAds: (...placeholders: ShowAdsArg[]) => void;
+  /**
+   * Request ads for additional placeholders after the initial load — the
+   * building block for infinite scroll and other dynamic content.
+   */
+  displayMore: (...placeholders: ShowAdsArg[]) => void;
+  /** Tear down the given placeholder ids (e.g. before removing their divs). */
+  destroyPlaceholders: (...ids: number[]) => void;
+  /**
+   * Tear down every selected placeholder plus the anchor ad, side rails, and
+   * floating outstream player.
+   */
+  destroyAll: () => void;
+  /** Re-request bids for the given (already-defined) placeholder ids. */
+  refreshAds: (...ids: number[]) => void;
+  /**
+   * Report whether the visitor is in the Ezoic ads A/B group. Returns the
+   * bundle's answer synchronously when it has already loaded; otherwise returns
+   * `false` immediately and, if a `callback` is supplied, invokes it with the
+   * real value once the bundle initializes. Always `false` during SSR.
+   */
+  isEzoicUser: (
+    percentage?: number,
+    callback?: (isUser: boolean) => void,
+  ) => boolean;
 }
 
 /**

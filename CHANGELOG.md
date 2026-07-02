@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `<EzoicAd>` display-placeholder component: renders a bare
+  `<div id="ezoic-pub-ad-placeholder-<id>">` (no styling; `inheritAttrs: false`
+  so a `class`/`style` never lands on the placeholder) and drives its lifecycle
+  through the ad bundle. Every `<EzoicAd>` mounting in the same tick is batched
+  into a single `showAds(...)` call; unmount calls `destroyPlaceholders(id)`;
+  mounting a duplicate id warns and requests it only once. Props: `id`
+  (integer 1–999), `required`, and `sizes`. SSR-safe (the div renders on the
+  server; the ad request runs only on the client).
+- `useEzoic()` now exposes typed passthroughs to the ezstandalone display
+  methods: `showAds`, `displayMore`, `destroyPlaceholders`, `destroyAll`,
+  `refreshAds`, and `isEzoicUser`. Each queues its call on the command queue and
+  is a no-op during SSR.
 - `EzoicPlugin` (`app.use(EzoicPlugin, options)`): injects the Ezoic scripts in
   the required order — Gatekeeper CMP consent scripts (with
   `data-cfasync="false"` set before `src`), then the cmd-queue stub, then the

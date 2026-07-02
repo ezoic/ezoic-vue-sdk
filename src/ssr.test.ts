@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { createApp, defineComponent, h } from 'vue';
 import { renderToString } from 'vue/server-renderer';
-import { EzoicPlugin, useEzoic } from './index';
+import { EzoicAd, EzoicPlugin, useEzoic } from './index';
 
 /**
  * These tests run in the Node environment (no `window`/`document`). Any access
@@ -43,5 +43,17 @@ describe('server-side rendering', () => {
     app.use(EzoicPlugin);
     await renderToString(app);
     expect(threw).toBe(false);
+  });
+
+  it('renders <EzoicAd> to a bare placeholder div without touching the DOM', async () => {
+    const app = createApp({
+      setup() {
+        return () => h(EzoicAd, { id: 101 });
+      },
+    });
+    app.use(EzoicPlugin);
+
+    const html = await renderToString(app);
+    expect(html).toContain('id="ezoic-pub-ad-placeholder-101"');
   });
 });
