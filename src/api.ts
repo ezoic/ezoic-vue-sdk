@@ -1,15 +1,21 @@
 /**
  * Builds the {@link EzoicApi} the plugin provides — the reactive `ready` flag,
  * the low-level `push` helper, and typed passthroughs to the `ezstandalone`
- * display methods.
+ * display, SPA, configuration, format-toggle, and consent methods.
  *
- * Every passthrough routes its call through `push`, so it is queued on the
- * command queue and runs after the standalone bundle initializes (or
+ * Setter-style passthroughs route their call through `push`, so they are queued
+ * on the command queue and run after the standalone bundle initializes (or
  * immediately if it already has). All calls are guarded with optional chaining
  * so a blocked or missing bundle degrades to a no-op rather than throwing.
+ *
+ * Synchronous getters (`hasAnchorAdBeenClosed`, `isInterstitialAllowed`,
+ * `isOutstreamAllowed`) return the bundle's live value once it has loaded and
+ * `false` before then — the "answer false until known" contract `isEzoicUser`
+ * already uses. `config` is write-only: the public `ezstandalone.config` wrapper
+ * returns nothing, so a getter form would always yield `undefined`.
  */
 import type { Ref } from 'vue';
-import type { EzoicApi, ShowAdsArg } from './types';
+import type { EzoicApi, EzoicConfigOptions, ShowAdsArg } from './types';
 
 /**
  * Assembles a complete {@link EzoicApi} from a readiness ref and a `push`
@@ -50,5 +56,69 @@ export function createEzoicApi(
       }
       return false;
     },
+    config: (options: EzoicConfigOptions): void =>
+      push(() => window.ezstandalone?.config?.(options)),
+    setEzoicAnchorAd: (enabled: boolean): void =>
+      push(() => window.ezstandalone?.setEzoicAnchorAd?.(enabled)),
+    hasAnchorAdBeenClosed: (): boolean => {
+      if (typeof window === 'undefined') return false;
+      const ez = window.ezstandalone;
+      return typeof ez?.hasAnchorAdBeenClosed === 'function'
+        ? ez.hasAnchorAdBeenClosed()
+        : false;
+    },
+    setInterstitialAllowed: (
+      allowed: boolean,
+      options?: Record<string, unknown>,
+    ): void =>
+      push(() =>
+        window.ezstandalone?.setInterstitialAllowed?.(allowed, options),
+      ),
+    isInterstitialAllowed: (): boolean => {
+      if (typeof window === 'undefined') return false;
+      const ez = window.ezstandalone;
+      return typeof ez?.isInterstitialAllowed === 'function'
+        ? ez.isInterstitialAllowed()
+        : false;
+    },
+    setOutstreamAllowed: (
+      allowed: boolean,
+      options?: Record<string, unknown>,
+    ): Promise<boolean> => {
+      if (typeof window === 'undefined') return Promise.resolve(false);
+      const ez = window.ezstandalone;
+      if (typeof ez?.setOutstreamAllowed === 'function') {
+        return Promise.resolve(ez.setOutstreamAllowed(allowed, options)).then(
+          (result) => Boolean(result),
+          () => false,
+        );
+      }
+      // Bundle not loaded yet: queue the setter and report an unconfirmed false
+      // now rather than leaving the promise pending until (or unless) it loads.
+      // Swallow the queued call's own promise so a later rejection (once the cmd
+      // queue drains at init) does not surface as an unhandled rejection — the
+      // caller already has its resolved `false`.
+      push(() => {
+        void window.ezstandalone
+          ?.setOutstreamAllowed?.(allowed, options)
+          ?.catch(() => {});
+      });
+      return Promise.resolve(false);
+    },
+    isOutstreamAllowed: (): boolean => {
+      if (typeof window === 'undefined') return false;
+      const ez = window.ezstandalone;
+      return typeof ez?.isOutstreamAllowed === 'function'
+        ? ez.isOutstreamAllowed()
+        : false;
+    },
+    enableConsent: (): void =>
+      push(() => window.ezstandalone?.enableConsent?.()),
+    setDisablePersonalizedStatistics: (disable: boolean): void =>
+      push(() =>
+        window.ezstandalone?.setDisablePersonalizedStatistics?.(disable),
+      ),
+    setDisablePersonalizedAds: (disable: boolean): void =>
+      push(() => window.ezstandalone?.setDisablePersonalizedAds?.(disable)),
   };
 }

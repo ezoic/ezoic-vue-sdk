@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- CMP/consent and typed configuration. `useEzoic()` gains verified passthroughs
+  for publisher configuration and ad formats: `config(options)` (a closed,
+  typed `EzoicConfigOptions` set — the bundle rejects unknown keys),
+  `setEzoicAnchorAd`, `setInterstitialAllowed` / `isInterstitialAllowed`,
+  `setOutstreamAllowed` (resolves the effective allowed state) /
+  `isOutstreamAllowed`, `hasAnchorAdBeenClosed`, and the consent setters
+  `enableConsent`, `setDisablePersonalizedStatistics`,
+  `setDisablePersonalizedAds`. `config` is write-only because the public
+  `ezstandalone.config` wrapper returns nothing; the boolean queries return the
+  bundle's live value once it has loaded and `false` before then. New composable
+  `useEzoicConsent()` exposes reactive IAB TCF v2.2 consent state
+  (`tcfLoaded`, `consentString`, `gdprApplies`, `eventStatus`) read from
+  `window.__tcfapi`; it is SSR-safe and detaches its listener on unmount. New
+  exports: `useEzoicConsent`, and the `EzoicConfigOptions`, `EzoicConsentState`,
+  `TcfData`, and `TcfApi` types.
 - Zero-config placements. `<EzoicAd>` now accepts a semantic `location` name
   (e.g. `location="under_first_paragraph"`) instead of a numeric `id`; the two
   props are mutually exclusive (passing both or neither warns and renders

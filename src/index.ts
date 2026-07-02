@@ -5,9 +5,11 @@
  * the public Ezoic script URLs, the placeholder DOM contract, shared types, the
  * `EzoicPlugin` (script management), the `useEzoic()` composable, the
  * `<EzoicAd>` display-placeholder component (numeric ids and zero-config
- * semantic `location` names), and single-page-app routing (`useEzoicPageView()`
- * plus the plugin's `spa`/`router` options). CMP/consent helpers, rewarded ads,
- * and video land in later releases — see CHANGELOG.md.
+ * semantic `location` names), single-page-app routing (`useEzoicPageView()`
+ * plus the plugin's `spa`/`router` options), and CMP/consent + configuration
+ * helpers (`useEzoicConsent()`, plus `config()` and the format toggles on
+ * `useEzoic()`). Rewarded ads and video land in later releases — see
+ * CHANGELOG.md.
  */
 export {
   STANDALONE_SCRIPT_URL,
@@ -31,17 +33,22 @@ export { EzoicPlugin } from './plugin';
 export { EzoicAd } from './EzoicAd';
 export { useEzoic } from './useEzoic';
 export { useEzoicPageView } from './pageView';
+export { useEzoicConsent } from './consent';
 export { ezoicInjectionKey } from './keys';
 export type {
   ShowAdsPlaceholder,
   ShowAdsArg,
   EzoicPluginOptions,
   EzoicApi,
+  EzoicConfigOptions,
   EzoicRouter,
 } from './types';
 export type { EzoicPageViewOptions } from './pageView';
+export type { EzoicConsentState } from './consent';
 export type {
   EzstandaloneGlobal,
   EzstandaloneCmdQueue,
   EzoicCmdFn,
+  TcfData,
+  TcfApi,
 } from './global';

@@ -255,6 +255,92 @@ const ezoic = useEzoic();
 ezoic.displayMore(210, 211);
 ```
 
+## Consent and configuration
+
+### Configuration (`config`)
+
+`useEzoic().config(options)` forwards publisher configuration to the ad bundle.
+Only the documented keys are accepted — the bundle logs an error and ignores
+anything else, so the options are a closed, typed set:
+
+```ts
+const ezoic = useEzoic();
+
+ezoic.config({
+  anchorAdPosition: 'bottom', // anchor ad position (default 'bottom')
+  anchorAdExpansion: true, // opt in to anchor expansion
+  disableVideo: false,
+  disableInterstitial: false,
+  disableLeftSideRail: false,
+  disableRightSideRail: false,
+  disableSidebarFloating: false,
+  reservePlaceholderSpace: true, // reserve space to reduce layout shift (CLS)
+  limitCookies: false,
+  vignetteDesktop: false,
+  vignetteMobile: false,
+  vignetteTablet: false,
+});
+```
+
+`config` is **write-only**: the underlying `ezstandalone.config` wrapper returns
+nothing, so there is no getter form. Read the effective format state through the
+specific queries below.
+
+### Format toggles
+
+```ts
+const ezoic = useEzoic();
+
+ezoic.setEzoicAnchorAd(true); // enable the anchor (sticky) ad
+ezoic.setInterstitialAllowed(false); // block the interstitial format
+await ezoic.setOutstreamAllowed(true); // → effective allowed state (Promise<boolean>)
+
+// Synchronous queries. These return the bundle's live value once it has loaded,
+// and `false` before then — query them after `ezoic.ready` is true.
+ezoic.hasAnchorAdBeenClosed();
+ezoic.isInterstitialAllowed();
+ezoic.isOutstreamAllowed();
+```
+
+### Consent
+
+The plugin injects the Ezoic Gatekeeper CMP scripts before the ad bundle by
+default (see [Setup](#setup)). These passthroughs let you signal consent
+preferences to the bundle:
+
+```ts
+const ezoic = useEzoic();
+
+ezoic.enableConsent(); // publisher is managing consent this pageview
+ezoic.setDisablePersonalizedStatistics(true);
+ezoic.setDisablePersonalizedAds(true);
+```
+
+### Reading TCF consent state (`useEzoicConsent`)
+
+`useEzoicConsent()` is a reactive view of the IAB TCF v2.2 consent state
+published by the active CMP through `window.__tcfapi`. It works with the Ezoic
+Gatekeeper CMP or any TCF CMP on the page, is SSR-safe, and cleans up its
+listener on unmount:
+
+```vue
+<script setup lang="ts">
+import { useEzoicConsent } from '@ezoic/vue-sdk';
+
+const { tcfLoaded, consentString, gdprApplies, eventStatus } =
+  useEzoicConsent();
+// tcfLoaded    → true once a final TC string is ready (tcloaded/useractioncomplete)
+// consentString→ the IAB TC string, or null until the CMP provides one
+// gdprApplies  → boolean | undefined (undefined until the CMP decides)
+// eventStatus  → latest TCF eventStatus, or null
+</script>
+
+<template>
+  <p v-if="tcfLoaded">Consent captured (GDPR applies: {{ gdprApplies }}).</p>
+  <p v-else>Waiting for the consent manager…</p>
+</template>
+```
+
 ## Foundation exports
 
 The SDK also exposes the low-level building blocks:
@@ -290,7 +376,7 @@ placeholder element itself:
 3. Display ads (`<EzoicAd :id="101" />`) ✅
 4. SPA routing (vue-router integration, Nuxt recipe) ✅
 5. Zero-config placements (`<EzoicAd location="under_first_paragraph" />`) ✅
-6. CMP/consent + typed `config()`
+6. CMP/consent + typed `config()` ✅
 7. Rewarded ads (`useEzoicRewarded()`)
 8. Video (`<EzoicVideo>`, `<HumixVideo>`)
 9. Docs + demo app

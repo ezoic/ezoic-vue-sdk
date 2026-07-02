@@ -102,6 +102,110 @@ export interface EzoicApi {
    * call it directly only for a fully custom routing integration.
    */
   setIsSinglePageApplication: (spa: boolean) => void;
+  /**
+   * Apply Ezoic configuration. Accepts only the keys in
+   * {@link EzoicConfigOptions}; the bundle ignores unknown keys. Queued on the
+   * command queue and a no-op during SSR.
+   *
+   * Write-only: the underlying `ezstandalone.config` wrapper returns nothing, so
+   * there is no getter form. Read effective settings through the specific
+   * format queries (`isInterstitialAllowed`, `isOutstreamAllowed`) instead.
+   */
+  config: (options: EzoicConfigOptions) => void;
+  /**
+   * Enable or disable the Ezoic anchor (sticky) ad. Queued on the command queue
+   * and a no-op during SSR.
+   */
+  setEzoicAnchorAd: (enabled: boolean) => void;
+  /**
+   * Report whether the visitor has already dismissed the anchor ad. Returns the
+   * bundle's cookie-backed answer once it has loaded; before then (and during
+   * SSR, or when the bundle is blocked) returns `false`. Query it after
+   * {@link EzoicApi.ready} flips true for an accurate reading.
+   */
+  hasAnchorAdBeenClosed: () => boolean;
+  /**
+   * Allow or block the interstitial ad format. Queued on the command queue and a
+   * no-op during SSR.
+   */
+  setInterstitialAllowed: (
+    allowed: boolean,
+    options?: Record<string, unknown>,
+  ) => void;
+  /**
+   * Report whether the interstitial format is currently allowed. Returns the
+   * bundle's live value once it has loaded; before then (and during SSR, or when
+   * the bundle is blocked) returns `false`. Query it after {@link EzoicApi.ready}
+   * flips true for an accurate reading.
+   */
+  isInterstitialAllowed: () => boolean;
+  /**
+   * Allow or block the floating outstream video format. Resolves to the
+   * effective allowed state once the bundle has loaded; if the bundle has not
+   * loaded yet the request is queued and the promise resolves `false` (during
+   * SSR it resolves `false` without queuing).
+   */
+  setOutstreamAllowed: (
+    allowed: boolean,
+    options?: Record<string, unknown>,
+  ) => Promise<boolean>;
+  /**
+   * Report whether the floating outstream format is currently allowed. Returns
+   * the bundle's live value once it has loaded; before then (and during SSR, or
+   * when the bundle is blocked) returns `false`. Query it after
+   * {@link EzoicApi.ready} flips true for an accurate reading.
+   */
+  isOutstreamAllowed: () => boolean;
+  /**
+   * Signal that consent is being managed for this pageview (sets the bundle's
+   * `manageConsent` flag). Queued on the command queue and a no-op during SSR.
+   */
+  enableConsent: () => void;
+  /**
+   * Opt the visitor out of personalized statistics. Queued on the command queue
+   * and a no-op during SSR.
+   */
+  setDisablePersonalizedStatistics: (disable: boolean) => void;
+  /**
+   * Opt the visitor out of personalized ads. Queued on the command queue and a
+   * no-op during SSR.
+   */
+  setDisablePersonalizedAds: (disable: boolean) => void;
+}
+
+/**
+ * The closed set of configuration keys `ezstandalone.config(...)` accepts. The
+ * bundle logs an error and ignores any key outside this set, so the type is a
+ * fixed interface rather than an open record.
+ *
+ * All keys are optional; only the ones you pass are applied. Values and effects
+ * are verified against the Ezoic standalone bundle.
+ */
+export interface EzoicConfigOptions {
+  /** Anchor ad position. Defaults to `"bottom"`. */
+  anchorAdPosition?: string;
+  /** Opt in to anchor ad expansion. */
+  anchorAdExpansion?: boolean;
+  /** Disable video ads. */
+  disableVideo?: boolean;
+  /** Disable the interstitial format. */
+  disableInterstitial?: boolean;
+  /** Disable the left side rail. */
+  disableLeftSideRail?: boolean;
+  /** Disable the right side rail. */
+  disableRightSideRail?: boolean;
+  /** Disable the floating sidebar. */
+  disableSidebarFloating?: boolean;
+  /** Reserve placeholder space up front to reduce layout shift (CLS). */
+  reservePlaceholderSpace?: boolean;
+  /** Limit cookie usage (server-side effect). */
+  limitCookies?: boolean;
+  /** Enable the desktop vignette format. */
+  vignetteDesktop?: boolean;
+  /** Enable the mobile vignette format. */
+  vignetteMobile?: boolean;
+  /** Enable the tablet vignette format. */
+  vignetteTablet?: boolean;
 }
 
 /**

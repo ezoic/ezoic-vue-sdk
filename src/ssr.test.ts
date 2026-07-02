@@ -2,7 +2,13 @@
 import { describe, expect, it } from 'vitest';
 import { createApp, defineComponent, h, ref } from 'vue';
 import { renderToString } from 'vue/server-renderer';
-import { EzoicAd, EzoicPlugin, useEzoic, useEzoicPageView } from './index';
+import {
+  EzoicAd,
+  EzoicPlugin,
+  useEzoic,
+  useEzoicConsent,
+  useEzoicPageView,
+} from './index';
 
 /**
  * These tests run in the Node environment (no `window`/`document`). Any access
@@ -85,5 +91,19 @@ describe('server-side rendering', () => {
 
     const html = await renderToString(app);
     expect(html).toContain('id="pageview"');
+  });
+
+  it('useEzoicConsent renders without touching window/__tcfapi', async () => {
+    const Comp = defineComponent({
+      setup() {
+        const consent = useEzoicConsent();
+        return () =>
+          h('div', { id: 'consent' }, String(consent.tcfLoaded.value));
+      },
+    });
+
+    const app = createApp(Comp);
+    const html = await renderToString(app);
+    expect(html).toContain('>false<');
   });
 });
