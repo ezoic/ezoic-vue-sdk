@@ -67,7 +67,11 @@ interface ExternalScriptOptions {
  */
 function injectExternalScript(
   url: string,
-  { async: isAsync = false, cfasync = false, before }: ExternalScriptOptions = {},
+  {
+    async: isAsync = false,
+    cfasync = false,
+    before,
+  }: ExternalScriptOptions = {},
 ): void {
   if (findExternalScript(url)) return;
   const el = document.createElement('script');
@@ -108,8 +112,9 @@ export function ensureCmdQueue(): void {
  */
 function ensureCmdStub(before?: Element | null): void {
   const alreadyInjected =
-    document.querySelector(`script[${SDK_MARKER_ATTR}="${CMD_STUB_MARKER}"]`) !==
-    null;
+    document.querySelector(
+      `script[${SDK_MARKER_ATTR}="${CMD_STUB_MARKER}"]`,
+    ) !== null;
   const hostProvidesQueue = typeof window.ezstandalone !== 'undefined';
 
   if (!alreadyInjected && !hostProvidesQueue) {

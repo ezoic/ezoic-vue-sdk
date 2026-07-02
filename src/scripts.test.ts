@@ -92,12 +92,7 @@ describe('injectEzoicScripts', () => {
     injectEzoicScripts();
 
     const order = headScriptOrder();
-    expect(order).toEqual([
-      CMP1,
-      CMP2,
-      '[inline-stub]',
-      STANDALONE_SCRIPT_URL,
-    ]);
+    expect(order).toEqual([CMP1, CMP2, '[inline-stub]', STANDALONE_SCRIPT_URL]);
   });
 
   it('does not inject its own stub when the host already defines ezstandalone', () => {
@@ -136,8 +131,8 @@ describe('injectEzoicScripts', () => {
     const analytics = 'https://example.com/analytics.js';
     injectEzoicScripts({ analyticsScriptUrl: analytics });
     injectEzoicScripts({ analyticsScriptUrl: analytics });
-    expect(document.querySelectorAll(`script[src="${analytics}"]`)).toHaveLength(
-      1,
-    );
+    expect(
+      document.querySelectorAll(`script[src="${analytics}"]`),
+    ).toHaveLength(1);
   });
 });

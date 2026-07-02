@@ -11,8 +11,7 @@ const STUB_SELECTOR = 'script[data-ezoic-vue-sdk="cmd-stub"]';
 function drainCmdQueue(): void {
   // Before init the queue is a real array; cast to inspect and drain it.
   const queue = window.ezstandalone?.cmd as unknown as
-    | Array<() => void>
-    | undefined;
+    Array<() => void> | undefined;
   if (!queue) return;
   const pending = [...queue];
   queue.length = 0;
