@@ -32,6 +32,8 @@ export function createEzoicApi(
     destroyAll: (): void => push(() => window.ezstandalone?.destroyAll?.()),
     refreshAds: (...ids: number[]): void =>
       push(() => window.ezstandalone?.refreshAds?.(...ids)),
+    setIsSinglePageApplication: (spa: boolean): void =>
+      push(() => window.ezstandalone?.setIsSinglePageApplication?.(spa)),
     isEzoicUser: (
       percentage?: number,
       callback?: (isUser: boolean) => void,

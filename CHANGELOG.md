@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Single-page-app routing. `useEzoicPageView(routeKey, options?)` turns each
+  change of a reactive route key into an Ezoic pageview: scan mode (no `ids`)
+  re-requests the new route's ads via `showAds()` and pairs with `<EzoicAd>`;
+  managed mode (`ids` provided) destroys the previous route's ids and requests
+  the current route's ids. It declares SPA mode itself, watches with
+  `flush: 'post'` (the new route's DOM is in place before ads are requested),
+  does not fire on the initial render, and is SSR-safe. The `EzoicPlugin`
+  gains a `spa` option (declare a single-page app at boot) and a `router`
+  option (a Vue Router instance — enables SPA mode and rescans after every
+  navigation, coalesced with the ad bundle's built-in navigation monitor so a
+  route change fires one ad request). `useEzoic()` adds a
+  `setIsSinglePageApplication` passthrough. New exports: `useEzoicPageView`,
+  and the `EzoicRouter` and `EzoicPageViewOptions` types.
 - `<EzoicAd>` display-placeholder component: renders a bare
   `<div id="ezoic-pub-ad-placeholder-<id>">` (no styling; `inheritAttrs: false`
   so a `class`/`style` never lands on the placeholder) and drives its lifecycle

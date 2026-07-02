@@ -1,8 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createApp } from 'vue';
+import { createApp, nextTick } from 'vue';
 import { CMP_SCRIPT_URLS, STANDALONE_SCRIPT_URL } from './constants';
 import { EzoicPlugin } from './plugin';
 import { useEzoic } from './useEzoic';
+
+/** Runs queued callbacks immediately, simulating a post-init ezstandalone. */
+const immediatePush = (fn: () => void): void => {
+  fn();
+};
 
 const [CMP1, CMP2] = CMP_SCRIPT_URLS;
 const STUB_SELECTOR = 'script[data-ezoic-vue-sdk="cmd-stub"]';
@@ -93,5 +98,52 @@ describe('EzoicPlugin install', () => {
     app.use(EzoicPlugin, { cmp: false });
     expect(document.querySelector(`script[src="${CMP1}"]`)).toBeNull();
     expect(document.querySelector(STUB_SELECTOR)).not.toBeNull();
+  });
+
+  it('spa option declares a single-page application at boot', () => {
+    const setIsSinglePageApplication = vi.fn();
+    window.ezstandalone = {
+      cmd: { push: immediatePush },
+      setIsSinglePageApplication,
+    };
+    createApp({ render: () => null }).use(EzoicPlugin, { spa: true });
+    expect(setIsSinglePageApplication).toHaveBeenCalledWith(true);
+  });
+
+  it('does not declare SPA mode without the spa or router option', () => {
+    const setIsSinglePageApplication = vi.fn();
+    window.ezstandalone = {
+      cmd: { push: immediatePush },
+      setIsSinglePageApplication,
+    };
+    createApp({ render: () => null }).use(EzoicPlugin);
+    expect(setIsSinglePageApplication).not.toHaveBeenCalled();
+  });
+
+  it('router option enables SPA mode and rescans after each navigation', async () => {
+    const setIsSinglePageApplication = vi.fn();
+    const showAds = vi.fn();
+    window.ezstandalone = {
+      cmd: { push: immediatePush },
+      setIsSinglePageApplication,
+      showAds,
+    };
+    const afterEach = vi.fn();
+    createApp({ render: () => null }).use(EzoicPlugin, {
+      router: { afterEach },
+    });
+
+    // SPA mode declared, and an afterEach hook was registered.
+    expect(setIsSinglePageApplication).toHaveBeenCalledWith(true);
+    expect(afterEach).toHaveBeenCalledTimes(1);
+
+    // The registered hook rescans (deferred to the next tick), with no ids so
+    // ezstandalone scans the whole page.
+    const guard = afterEach.mock.calls[0][0] as () => void;
+    expect(showAds).not.toHaveBeenCalled();
+    guard();
+    await nextTick();
+    expect(showAds).toHaveBeenCalledTimes(1);
+    expect(showAds).toHaveBeenCalledWith();
   });
 });

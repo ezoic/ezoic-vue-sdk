@@ -4,10 +4,11 @@ Official [Ezoic](https://www.ezoic.com/) ads SDK for Vue 3.
 
 > **Status: 0.x, in active development.** This package is being built out
 > incrementally. It currently ships script management (the `EzoicPlugin`), the
-> `useEzoic()` composable, and the `<EzoicAd>` display-placeholder component, on
-> top of the verified foundation (public script URLs, the placeholder DOM
-> contract, and shared types). Single-page-app routing, CMP/consent helpers,
-> rewarded ads, and video are on the roadmap below.
+> `useEzoic()` composable, the `<EzoicAd>` display-placeholder component, and
+> single-page-app routing (`useEzoicPageView()` plus the plugin's `spa`/`router`
+> options), on top of the verified foundation (public script URLs, the
+> placeholder DOM contract, and shared types). CMP/consent helpers, rewarded
+> ads, and video are on the roadmap below.
 
 ## Install
 
@@ -42,6 +43,8 @@ no `window` or `document` is touched, so it works under Nuxt 3.
 app.use(EzoicPlugin, {
   cmp: true, // inject the Gatekeeper CMP scripts (default true)
   analyticsScriptUrl: undefined, // optional analytics loader, injected last
+  spa: false, // declare a single-page app at boot (see SPA routing below)
+  router: undefined, // a Vue Router instance to auto-hook route changes
 });
 ```
 
@@ -107,6 +110,108 @@ import { EzoicAd } from '@ezoic/vue-sdk';
 - **SSR-safe.** The div renders during server render; the ad request happens
   only on the client after mount.
 
+## Single-page apps (SPA routing)
+
+In a single-page app the browser never does a full page load between routes, so
+Ezoic needs to be told when a new "pageview" begins. The SDK declares SPA mode
+(`setIsSinglePageApplication(true)`) at boot and requests the new route's ads on
+each navigation. The ad bundle's built-in navigation monitor and its own
+debounce coalesce this with the route change, so a navigation fires a single ad
+request — the SDK never double-fires.
+
+### Vue Router (recommended)
+
+Pass your router to the plugin. It enables SPA mode and rescans the page for
+placeholders after every navigation. Combined with `<EzoicAd>` — whose unmount
+tears down the placeholders leaving the page — that is the whole integration:
+
+```ts
+import { createApp } from 'vue';
+import { EzoicPlugin } from '@ezoic/vue-sdk';
+import { router } from './router';
+import App from './App.vue';
+
+createApp(App).use(router).use(EzoicPlugin, { router }).mount('#app');
+```
+
+Then place `<EzoicAd>` components in your route views as usual. Navigating away
+unmounts them (destroying those placeholders); the plugin's post-navigation
+rescan requests whatever the new route rendered.
+
+### Router-agnostic core: `useEzoicPageView()`
+
+For a custom router, a non-Vue-Router setup, or explicit per-route control, call
+`useEzoicPageView()` with a value that changes on every route change:
+
+```ts
+import { useRoute } from 'vue-router';
+import { useEzoicPageView } from '@ezoic/vue-sdk';
+
+const route = useRoute();
+
+// Scan mode: on each route change, re-request the ads the new route rendered.
+// Pair with <EzoicAd> (its unmount destroys the departing placeholders).
+useEzoicPageView(() => route.fullPath);
+```
+
+If you render the placeholder `<div>`s yourself instead of using `<EzoicAd>`,
+pass the ids present on each route (**managed mode**). On every change the
+previous route's ids are destroyed and the current route's ids are requested:
+
+```ts
+import { computed } from 'vue';
+
+const ids = computed(() => (route.name === 'article' ? [101, 102] : [201]));
+useEzoicPageView(() => route.fullPath, { ids });
+```
+
+`useEzoicPageView()` declares SPA mode itself, so you do not also need the
+plugin's `spa`/`router` options when you use it. It is SSR-safe (it touches no
+`window`, and the watcher never runs during server render) and does not fire on
+the initial render — the first pageview is handled by your components mounting
+normally.
+
+### Nuxt 3
+
+Register the plugin in a client plugin and drive pageviews from the Nuxt route:
+
+```ts
+// plugins/ezoic.client.ts
+import { EzoicPlugin } from '@ezoic/vue-sdk';
+
+export default defineNuxtPlugin((nuxtApp) => {
+  nuxtApp.vueApp.use(EzoicPlugin, { spa: true });
+});
+```
+
+```vue
+<!-- app.vue (or a layout) -->
+<script setup lang="ts">
+import { useRoute } from 'vue-router';
+import { useEzoicPageView } from '@ezoic/vue-sdk';
+
+const route = useRoute();
+useEzoicPageView(() => route.fullPath);
+</script>
+```
+
+The `.client.ts` suffix keeps script injection out of the server bundle; the
+plugin and composable are SSR-safe regardless.
+
+### Infinite scroll and dynamic content
+
+To add ads to content appended within the _same_ pageview (infinite scroll, a
+"load more" button, a modal), request just the new ids — do not re-scan or start
+a new pageview. Mounting more `<EzoicAd>` components does this automatically; to
+do it imperatively, use `displayMore` (or `showAds` with the new ids) from
+`useEzoic()`:
+
+```ts
+const ezoic = useEzoic();
+// After appending divs for placeholders 210 and 211:
+ezoic.displayMore(210, 211);
+```
+
 ## Foundation exports
 
 The SDK also exposes the low-level building blocks:
@@ -136,7 +241,7 @@ placeholder element itself:
 1. Package skeleton ✅
 2. Plugin + script management (`app.use(EzoicPlugin, options)`) ✅
 3. Display ads (`<EzoicAd :id="101" />`) ✅
-4. SPA routing (vue-router integration, Nuxt recipe)
+4. SPA routing (vue-router integration, Nuxt recipe) ✅
 5. Zero-config placements (`<EzoicAd location="under_first_paragraph" />`)
 6. CMP/consent + typed `config()`
 7. Rewarded ads (`useEzoicRewarded()`)

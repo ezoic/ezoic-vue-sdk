@@ -1,8 +1,8 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { createApp, defineComponent, h } from 'vue';
+import { createApp, defineComponent, h, ref } from 'vue';
 import { renderToString } from 'vue/server-renderer';
-import { EzoicAd, EzoicPlugin, useEzoic } from './index';
+import { EzoicAd, EzoicPlugin, useEzoic, useEzoicPageView } from './index';
 
 /**
  * These tests run in the Node environment (no `window`/`document`). Any access
@@ -55,5 +55,21 @@ describe('server-side rendering', () => {
 
     const html = await renderToString(app);
     expect(html).toContain('id="ezoic-pub-ad-placeholder-101"');
+  });
+
+  it('useEzoicPageView renders without touching the DOM', async () => {
+    const Comp = defineComponent({
+      setup() {
+        const routeKey = ref('/a');
+        useEzoicPageView(routeKey);
+        return () => h('div', { id: 'pageview' }, 'ok');
+      },
+    });
+
+    const app = createApp(Comp);
+    app.use(EzoicPlugin);
+
+    const html = await renderToString(app);
+    expect(html).toContain('id="pageview"');
   });
 });

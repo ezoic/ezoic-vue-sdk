@@ -1,5 +1,17 @@
 import type { Ref } from 'vue';
 
+/**
+ * The subset of a router this SDK needs: an `afterEach` navigation hook that
+ * fires after every confirmed navigation. Vue Router's `Router` satisfies this
+ * structurally, so you can pass your router instance directly
+ * (`app.use(EzoicPlugin, { router })`).
+ */
+export interface EzoicRouter {
+  afterEach(
+    guard: (to: unknown, from: unknown, failure?: unknown) => unknown,
+  ): unknown;
+}
+
 /** Options for `app.use(EzoicPlugin, options)`. */
 export interface EzoicPluginOptions {
   /**
@@ -13,6 +25,21 @@ export interface EzoicPluginOptions {
    * integrations do not need this.
    */
   analyticsScriptUrl?: string;
+  /**
+   * Declare the app a single-page application at boot (calls
+   * `setIsSinglePageApplication(true)`), so a later `showAds()` on a route
+   * change becomes a new pageview rather than an incremental add. Implied when
+   * {@link EzoicPluginOptions.router} is set. Defaults to `false`.
+   */
+  spa?: boolean;
+  /**
+   * A Vue Router instance (or anything with a compatible `afterEach`). When
+   * provided, the plugin enables SPA mode and rescans the page for placeholders
+   * after every navigation — pair it with `<EzoicAd>`, whose unmount tears down
+   * departing placeholders. The built-in navigation monitor and ezstandalone's
+   * own debounce coalesce these into a single ad request per route change.
+   */
+  router?: EzoicRouter;
 }
 
 /**
@@ -67,6 +94,14 @@ export interface EzoicApi {
     percentage?: number,
     callback?: (isUser: boolean) => void,
   ) => boolean;
+  /**
+   * Declare the page a single-page application, so subsequent `showAds()` calls
+   * with no arguments are routed to a full pageview refresh. Queued on the
+   * command queue and a no-op during SSR. The plugin sets this at boot via its
+   * `spa`/`router` options, and {@link useEzoicPageView} sets it automatically;
+   * call it directly only for a fully custom routing integration.
+   */
+  setIsSinglePageApplication: (spa: boolean) => void;
 }
 
 /**

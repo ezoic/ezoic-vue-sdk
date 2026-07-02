@@ -65,6 +65,20 @@ describe('createEzoicApi', () => {
     expect(refreshAds).toHaveBeenCalledWith(303);
   });
 
+  it('setIsSinglePageApplication forwards through the command queue', () => {
+    const setIsSinglePageApplication = vi.fn();
+    window.ezstandalone = {
+      cmd: { push: immediatePush },
+      setIsSinglePageApplication,
+    };
+    const api = createEzoicApi(ref(false), immediatePush);
+
+    api.setIsSinglePageApplication(true);
+
+    expect(setIsSinglePageApplication).toHaveBeenCalledTimes(1);
+    expect(setIsSinglePageApplication).toHaveBeenCalledWith(true);
+  });
+
   it('passthroughs are safe no-ops when the bundle exposes no methods', () => {
     window.ezstandalone = { cmd: { push: immediatePush } };
     const api = createEzoicApi(ref(false), immediatePush);
@@ -74,6 +88,7 @@ describe('createEzoicApi', () => {
       api.destroyPlaceholders(101);
       api.destroyAll();
       api.refreshAds(103);
+      api.setIsSinglePageApplication(true);
     }).not.toThrow();
   });
 

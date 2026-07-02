@@ -51,6 +51,13 @@ export interface EzstandaloneGlobal {
     percentage?: number,
     callback?: (isUser: boolean) => void,
   ) => boolean;
+  /**
+   * Declare the page a single-page application. In SPA mode a later `showAds()`
+   * with no arguments is routed to a full pageview refresh rather than an
+   * incremental add, so each client-side route change is treated as a new
+   * pageview. Set once at app boot.
+   */
+  setIsSinglePageApplication?: (spa: boolean) => void;
 }
 
 declare global {
