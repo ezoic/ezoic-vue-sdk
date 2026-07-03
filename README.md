@@ -552,6 +552,71 @@ placeholder element itself:
 <div id="ezoic-pub-ad-placeholder-101"></div>
 ```
 
+## Migration from raw Ezoic snippets
+
+If you currently paste Ezoic's raw script snippets into your HTML or Vue app,
+the SDK replaces the manual script tags and `ezstandalone.cmd.push` calls with
+a plugin and a component.
+
+### Before (raw snippets)
+
+```html
+<script
+  data-cfasync="false"
+  src="https://cmp.gatekeeperconsent.com/min.js"
+></script>
+<script
+  data-cfasync="false"
+  src="https://the.gatekeeperconsent.com/cmp.min.js"
+></script>
+<script>
+  window.ezstandalone = window.ezstandalone || {};
+  ezstandalone.cmd = ezstandalone.cmd || [];
+</script>
+<script async src="https://www.ezojs.com/ezoic/sa.min.js"></script>
+
+<div id="ezoic-pub-ad-placeholder-101"></div>
+
+<script>
+  ezstandalone.cmd.push(function () {
+    ezstandalone.showAds(101);
+  });
+</script>
+```
+
+### After (SDK)
+
+```ts
+// main.ts — app.use(EzoicPlugin) injects the CMP scripts, the command-queue
+// stub, and the async ad bundle, in the correct order, automatically.
+import { createApp } from 'vue';
+import { EzoicPlugin } from '@ezoic/vue-sdk';
+import App from './App.vue';
+
+createApp(App).use(EzoicPlugin).mount('#app');
+```
+
+```vue
+<script setup lang="ts">
+import { EzoicAd } from '@ezoic/vue-sdk';
+</script>
+
+<template>
+  <EzoicAd :id="101" :sizes="['728x90']" />
+</template>
+```
+
+### Mapping
+
+| Raw snippet                                                | SDK equivalent                                        |
+| ---------------------------------------------------------- | ----------------------------------------------------- |
+| CMP `<script>` tags + command-queue stub + `sa.min.js` tag | `app.use(EzoicPlugin)`                                |
+| `ezstandalone.showAds(id)`                                 | Mount `<EzoicAd :id>` (or `useEzoic().showAds(...)`)  |
+| `ezstandalone.destroyPlaceholders(id)`                     | Automatic — runs when `<EzoicAd>` unmounts            |
+| `ezstandalone.setIsSinglePageApplication(true)`            | Plugin option `spa: true`                             |
+| Manual per-route destroy + `showAds` calls                 | `useEzoicPageView()`, or the plugin's `router` option |
+| `ezstandalone.cmd.push(fn)`                                | `useEzoic().push(fn)`                                 |
+
 ## Examples
 
 A runnable Vite + Vue 3 demo lives in [`examples/`](./examples). It exercises
