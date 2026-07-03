@@ -81,7 +81,7 @@ export const EzoicAd = defineComponent({
     location: { type: String, default: undefined },
     /**
      * Mark the placeholder as required (`saContext.rid`). Defaults to `true`
-     * for `location` placements — sol only treats a zero-config (900-range) id
+     * for `location` placements — the Ezoic ad server only treats a zero-config (900-range) id
      * as zero-config when it is required — and to `false` for numeric `id`
      * placements. Opt a location out with `:required="false"`.
      */

@@ -34,6 +34,14 @@ npm run dev        # or: npm run build   (vue-tsc typecheck + vite build)
 
 Requires Node 22 (see `.nvmrc` at the repo root).
 
+## Single-file build
+
+`npm run build` produces a single self-contained `dist/index.html` with all
+JS and CSS inlined (via `vite-plugin-singlefile`) and no external assets beyond
+the Ezoic/CMP scripts the SDK injects at runtime. That one file is portable and
+can be served as a standalone demo page. Rebuild it whenever the SDK's core
+script/display/SPA logic changes so the demo stays in sync.
+
 ## Note on localhost
 
 On localhost, ads will **not** fill — there is no Ezoic demand for localhost,

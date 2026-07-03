@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- `<EzoicAd location="...">` placements now default `required: true` (sol only
+- `<EzoicAd location="...">` placements now default `required: true` (the Ezoic ad server only
   treats a zero-config 900-range id as zero-config when it is required). Opt a
   location out with `:required="false"`. Numeric `id` placements are unchanged —
   `required` still defaults to `false`.
@@ -26,7 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`<EzoicVideo>`, `<EzoicVideoEmbed>`), with an on-page event log. It resolves
   `@ezoic/vue-sdk` to the built `dist/` via a Vite/tsconfig alias and is wired
   into CI as a separate `examples` build job (typecheck + build). `eslint` now
-  ignores `examples/**` (the root lint config is TS-only, no Vue parser).
+  ignores `examples/**` (the root lint config is TS-only, no Vue parser). The
+  demo also builds to a single self-contained `dist/index.html` with all JS and
+  CSS inlined (via `vite-plugin-singlefile`) for portable deployment.
 - Video. Two independent components. `<EzoicVideo>` renders an Ezoic video-ad
   placeholder driven by the ad bundle: it takes a publisher-chosen `divId`,
   renders a bare `<div id="<divId>">` (`inheritAttrs: false`), and on mount

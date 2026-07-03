@@ -142,7 +142,7 @@ import { EzoicAd } from '@ezoic/vue-sdk';
 - **`id` or `location`, never both.** Pass exactly one. Passing both, or
   neither, logs a warning and renders nothing.
 - **`location` placements default `required: true`.** That is what marks them
-  zero-config server-side (sol only treats a 900-range id as zero-config when it
+  zero-config server-side (the Ezoic ad server only treats a 900-range id as zero-config when it
   is required). Opt out with `:required="false"`. Numeric `id` placements keep
   `required` defaulting to `false`.
 - **`location` placements must pass `sizes`.** Unlike a numeric dashboard `id`,
