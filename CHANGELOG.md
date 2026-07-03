@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-07-03
+
 ### Changed
 
 - `<EzoicAd location="...">` placements now default `required: true` (the Ezoic ad server only
@@ -19,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Feature-complete 1.0.0 release: script management, display ads, single-page-app routing, zero-config location placements, CMP/consent and typed config, rewarded ads, and video are all shipped, unit-tested, and verified end-to-end against live Ezoic ad demand on a production site.
 - `examples/` Vite + Vue 3 demo app exercising every SDK feature on one page:
   display ads and zero-config `location` placements, numeric-id placements,
   dynamic incremental `showAds`, simulated SPA navigation via
@@ -159,4 +162,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     `MAX_PLACEHOLDER_ID`, `isValidPlaceholderId`, and `placeholderDomId`.
   - Shared types `ShowAdsPlaceholder` and `ShowAdsArg`.
 
-[Unreleased]: https://github.com/ezoic/ezoic-vue-sdk/commits/master
+[Unreleased]: https://github.com/ezoic/ezoic-vue-sdk/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/ezoic/ezoic-vue-sdk/releases/tag/v1.0.0

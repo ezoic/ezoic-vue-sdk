@@ -1,6 +1,6 @@
 {
   "name": "@ezoic/vue-sdk",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Official Ezoic ads SDK for Vue 3 — script management, display placeholders, SPA routing, CMP/consent, rewarded ads, and video.",
   "type": "module",
   "license": "MIT",
