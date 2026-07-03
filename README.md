@@ -96,15 +96,15 @@ import { EzoicAd } from '@ezoic/vue-sdk';
 </script>
 
 <template>
-  <EzoicAd :id="101" required :sizes="['728x90', '320x50']" />
-  <EzoicAd :id="102" required :sizes="['728x90', '970x250']" />
+  <EzoicAd :id="101" />
+  <EzoicAd :id="102" :sizes="['728x90', '970x250']" />
 </template>
 ```
 
-- **Always pass `sizes`.** Standalone placeholders have no dashboard-configured
-  sizing, so the `sizes` you pass are what create the ad's placements — a
-  placement shown without `sizes` yields no size-driven ad. The SDK logs a
-  dev-mode console warning when an `<EzoicAd>` is shown without `sizes`.
+- **`sizes` is optional for numeric ids.** A numeric `id` is a dashboard
+  placeholder whose sizing can be set in your Ezoic dashboard. Pass `sizes`
+  only when you want to force specific sizes; the SDK does not warn when a
+  numeric `id` is shown without `sizes`.
 - **Batched requests.** Every `<EzoicAd>` that mounts in the same tick is
   coalesced into a single `showAds(...)` call carrying all their ids (the ad
   bundle adds its own debounce on top).
@@ -144,8 +144,10 @@ import { EzoicAd } from '@ezoic/vue-sdk';
   zero-config server-side (sol only treats a 900-range id as zero-config when it
   is required). Opt out with `:required="false"`. Numeric `id` placements keep
   `required` defaulting to `false`.
-- **`location` placements must pass `sizes`.** Like numeric ids, they have no
-  dashboard sizing; the SDK warns loudly in dev when `sizes` is omitted.
+- **`location` placements must pass `sizes`.** Unlike a numeric dashboard `id`,
+  a zero-config 900-range placeholder has no dashboard sizing, so the `sizes`
+  you pass are what create the ad's placements; the SDK warns loudly in dev
+  when `sizes` is omitted.
 - **How it resolves.** When the ad bundle has loaded, the SDK uses its
   `GetGeneratedIdAsync(location)` helper (which finds a free slot and can
   allocate a fresh id for a repeated location). Before the bundle is available,
@@ -163,8 +165,9 @@ import { EzoicAd } from '@ezoic/vue-sdk';
 - **Client-only.** Because the name resolves on the client, a `location`
   placeholder renders nothing during SSR and appears after mount. Use a numeric
   `id` if you need the div present in the server-rendered HTML.
-- **`sizes`** works exactly as it does with a numeric `id` (and is just as
-  required). `required` differs only in its default (see above).
+- **`sizes`** uses the same `"<width>x<height>"` shape as a numeric `id`, but
+  here it is required rather than optional (there is no dashboard sizing to fall
+  back on). `required` differs only in its default (see above).
 
 `required`/`sizes`, batching, teardown on unmount, and the bare-div rule all
 apply to `location` placeholders just like numeric ones.

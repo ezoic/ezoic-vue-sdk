@@ -222,23 +222,7 @@ describe('<EzoicAd> — required/sizes contract', () => {
     wrapper.unmount();
   });
 
-  it('warns in dev mode for a numeric id shown without sizes', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
-    const wrapper = mountWithPlugin(EzoicAd, { id: 101 });
-    await flushPromises();
-
-    const sizesWarn = warn.mock.calls.find(
-      (call) => typeof call[0] === 'string' && call[0].includes('sizes'),
-    );
-    expect(sizesWarn).toBeDefined();
-    expect(showAds).toHaveBeenCalledWith(101);
-
-    wrapper.unmount();
-  });
-
-  it('suppresses the missing-sizes warning in production', async () => {
-    vi.stubEnv('NODE_ENV', 'production');
+  it('does not warn about missing sizes for a numeric id (dashboard sizing)', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     const wrapper = mountWithPlugin(EzoicAd, { id: 101 });
@@ -251,10 +235,26 @@ describe('<EzoicAd> — required/sizes contract', () => {
     expect(showAds).toHaveBeenCalledWith(101);
 
     wrapper.unmount();
+  });
+
+  it('suppresses the missing-sizes warning in production', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const wrapper = mountWithPlugin(EzoicAd, { location: 'mid_content' });
+    await flushPromises();
+
+    const sizesWarn = warn.mock.calls.find(
+      (call) => typeof call[0] === 'string' && call[0].includes('sizes'),
+    );
+    expect(sizesWarn).toBeUndefined();
+    expect(showAds).toHaveBeenCalledWith({ id: 911, required: true });
+
+    wrapper.unmount();
     vi.unstubAllEnvs();
   });
 
-  it('warns about missing sizes only for the winner, not the skipped duplicate', async () => {
+  it('a duplicate numeric id warns about the duplicate but not about sizes', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     const Parent = defineComponent({
@@ -268,10 +268,9 @@ describe('<EzoicAd> — required/sizes contract', () => {
     await flushPromises();
 
     const messages = warn.mock.calls.map((call) => String(call[0]));
-    // The winner (which claimed the id) emits exactly one missing-sizes warning;
-    // the skipped duplicate must not add a second one.
-    expect(messages.filter((m) => m.includes('sizes'))).toHaveLength(1);
-    // The loser emits the duplicate warning instead.
+    // Numeric ids are dashboard-configured, so no missing-sizes warning fires.
+    expect(messages.filter((m) => m.includes('sizes'))).toHaveLength(0);
+    // The loser still emits the duplicate warning.
     expect(messages.filter((m) => m.includes('duplicate'))).toHaveLength(1);
     expect(showAds).toHaveBeenCalledTimes(1);
     expect(showAds).toHaveBeenCalledWith(101);

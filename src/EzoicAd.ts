@@ -147,16 +147,22 @@ export const EzoicAd = defineComponent({
       owns = true;
       ownedId = id;
       resolvedId.value = id;
+      // A zero-config `location` placeholder resolves into the reserved 900-range,
+      // which has no dashboard-configured sizing, so the caller must pass `sizes`
+      // or the placement yields no size-driven ad. A numeric `id` is a
+      // dashboard placeholder whose sizing can be set in the Ezoic UI, so `sizes`
+      // is optional there and omitting it is not warned about.
       if (
         isDevMode() &&
+        hasLocation &&
         !(Array.isArray(props.sizes) && props.sizes.length > 0)
       ) {
-        const where = hasLocation ? ` (location "${props.location}")` : '';
         console.warn(
-          `[ezoic-vue-sdk] <EzoicAd> placeholder id ${id}${where} was shown ` +
-            'without `sizes`. Standalone placeholders have no dashboard sizing, ' +
-            'so a placement with no sizes yields no size-driven ad. Pass explicit ' +
-            `sizes, e.g. :sizes="['728x90', '320x50']".`,
+          `[ezoic-vue-sdk] <EzoicAd> location "${props.location}" (placeholder ` +
+            `id ${id}) was shown without \`sizes\`. Zero-config location ` +
+            'placeholders have no dashboard sizing, so a placement with no sizes ' +
+            'yields no size-driven ad. Pass explicit sizes, e.g. ' +
+            `:sizes="['728x90', '320x50']".`,
         );
       }
       // Read `required` live at claim time (a location claims after the async
