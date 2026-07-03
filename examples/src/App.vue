@@ -178,10 +178,10 @@ onMounted(() => {
       <p class="note">
         This page exercises every SDK feature end to end. Ad fill requires the
         page to be served from a domain with live Ezoic demand and enough page
-        content for Ezoic's ad-density rules to allow ad positions; rewarded
-        ads require this build to have been configured with a rewarded loader
-        URL. On a build or host missing either, the demo still proves wiring
-        and structure, just not fills.
+        content for Ezoic's ad-density rules to allow ad positions; rewarded ads
+        require this build to have been configured with a rewarded loader URL.
+        On a build or host missing either, the demo still proves wiring and
+        structure, just not fills.
       </p>
       <div class="status-bar">
         <span class="pill" :class="ezoic.ready.value ? 'on' : 'off'">
@@ -198,20 +198,20 @@ onMounted(() => {
         <p>
           <code>@ezoic/vue-sdk</code> is a thin Vue 3 wrapper around
           <code>ezstandalone</code>, the client-side runtime Ezoic uses to
-          bootstrap consent, request ad positions, and manage their lifecycle
-          in the browser. Rather than asking a publisher to hand-wire script
-          tags, imperative init calls, and manual teardown logic, the SDK
-          exposes a Vue plugin, a handful of composables, and a set of
-          components so ad behavior can be declared the way the rest of a Vue
-          application is declared: as reactive state and template markup.
+          bootstrap consent, request ad positions, and manage their lifecycle in
+          the browser. Rather than asking a publisher to hand-wire script tags,
+          imperative init calls, and manual teardown logic, the SDK exposes a
+          Vue plugin, a handful of composables, and a set of components so ad
+          behavior can be declared the way the rest of a Vue application is
+          declared: as reactive state and template markup.
         </p>
         <p>
-          The plugin handles one-time setup — injecting the CMP consent
-          script when configured, marking the app as a single-page
-          application so route changes are treated as new pageviews instead
-          of incremental ad requests, and optionally wiring a rewarded ads
-          loader. Composables such as <code>useEzoic</code>,
-          <code>useEzoicConsent</code>, <code>useEzoicPageView</code>, and
+          The plugin handles one-time setup — injecting the CMP consent script
+          when configured, marking the app as a single-page application so route
+          changes are treated as new pageviews instead of incremental ad
+          requests, and optionally wiring a rewarded ads loader. Composables
+          such as <code>useEzoic</code>, <code>useEzoicConsent</code>,
+          <code>useEzoicPageView</code>, and
           <code>useEzoicRewarded</code> expose the underlying runtime's state
           and methods as reactive refs and functions, so a component can read
           consent status or trigger a rewarded ad request without touching
@@ -219,43 +219,40 @@ onMounted(() => {
         </p>
         <p>
           Components handle placement. <code>&lt;EzoicAd&gt;</code> mounts a
-          placeholder either by a semantic location name (zero-config
-          locations such as <code>top_of_page</code> or
-          <code>mid_content</code>, resolved by Ezoic's own layout logic) or
-          by a specific numeric placement id, and unmounts cleanly when
-          removed from the DOM — which matters for dynamic and SPA-style
-          content where ad units are added, removed, or replaced as the page
-          changes. <code>&lt;EzoicVideo&gt;</code> and
+          placeholder either by a semantic location name (zero-config locations
+          such as <code>top_of_page</code> or <code>mid_content</code>, resolved
+          by Ezoic's own layout logic) or by a specific numeric placement id,
+          and unmounts cleanly when removed from the DOM — which matters for
+          dynamic and SPA-style content where ad units are added, removed, or
+          replaced as the page changes. <code>&lt;EzoicVideo&gt;</code> and
           <code>&lt;EzoicVideoEmbed&gt;</code> cover the ad-bundle video
           placeholder and a self-contained Open Video embed, respectively.
         </p>
         <p>
           One thing this demo can't fully control is whether a given ad
-          placement actually fills. Ad platforms, including Ezoic, use
-          signals about a page's content — how much text it has, and how
-          that text is distributed and structured — to decide how many ad
-          positions a page is eligible to show, independent of how many
-          <code>&lt;EzoicAd&gt;</code> components are mounted in the DOM. A
-          page that is mostly short button labels and status pills, rather
-          than substantive prose, may simply not have enough content to
-          qualify for any ad positions under those rules. That's part of why
-          this page includes a written section like this one: not as a
-          placement, but so the demo carries enough real text to be a
-          meaningful test of the SDK's behavior on a page that looks more
-          like typical published content.
+          placement actually fills. Ad platforms, including Ezoic, use signals
+          about a page's content — how much text it has, and how that text is
+          distributed and structured — to decide how many ad positions a page is
+          eligible to show, independent of how many
+          <code>&lt;EzoicAd&gt;</code> components are mounted in the DOM. A page
+          that is mostly short button labels and status pills, rather than
+          substantive prose, may simply not have enough content to qualify for
+          any ad positions under those rules. That's part of why this page
+          includes a written section like this one: not as a placement, but so
+          the demo carries enough real text to be a meaningful test of the SDK's
+          behavior on a page that looks more like typical published content.
         </p>
         <p>
-          The sections below walk through the SDK's surface area one feature
-          at a time: zero-config display ads placed by semantic location, a
-          placement addressed by numeric id with required fill behavior,
-          dynamic ad units added incrementally after the initial load,
-          simulated SPA navigation that swaps placeholders on a virtual page
-          change, consent and runtime configuration controls, rewarded ads
-          gated on a configured loader, and video embeds via both the
-          ad-bundle player and the standalone Open Video embed. Each panel
-          logs its actions to the event log at the bottom of the page so the
-          underlying composable and component behavior is visible as it
-          happens.
+          The sections below walk through the SDK's surface area one feature at
+          a time: zero-config display ads placed by semantic location, a
+          placement addressed by numeric id with required fill behavior, dynamic
+          ad units added incrementally after the initial load, simulated SPA
+          navigation that swaps placeholders on a virtual page change, consent
+          and runtime configuration controls, rewarded ads gated on a configured
+          loader, and video embeds via both the ad-bundle player and the
+          standalone Open Video embed. Each panel logs its actions to the event
+          log at the bottom of the page so the underlying composable and
+          component behavior is visible as it happens.
         </p>
       </section>
 
@@ -359,8 +356,8 @@ onMounted(() => {
         <h2>Rewarded ads</h2>
         <p>
           These controls stay pending, and <code>ready</code> stays false,
-          unless a rewarded loader URL was configured for this build.
-          Publishers configure their own loader via the plugin's
+          unless a rewarded loader URL was configured for this build. Publishers
+          configure their own loader via the plugin's
           <code>rewardedLoaderUrl</code> option.
         </p>
         <div class="button-row">
