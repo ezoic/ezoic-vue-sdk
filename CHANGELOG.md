@@ -19,6 +19,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `examples/` Vite + Vue 3 demo app exercising every SDK feature on one page:
+  display ads and zero-config `location` placements, numeric-id placements,
+  dynamic incremental `showAds`, simulated SPA navigation via
+  `useEzoicPageView()`, consent/config, rewarded ads, and video
+  (`<EzoicVideo>`, `<EzoicVideoEmbed>`), with an on-page event log. It resolves
+  `@ezoic/vue-sdk` to the built `dist/` via a Vite/tsconfig alias and is wired
+  into CI as a separate `examples` build job (typecheck + build). `eslint` now
+  ignores `examples/**` (the root lint config is TS-only, no Vue parser).
 - Video. Two independent components. `<EzoicVideo>` renders an Ezoic video-ad
   placeholder driven by the ad bundle: it takes a publisher-chosen `divId`,
   renders a bare `<div id="<divId>">` (`inheritAttrs: false`), and on mount

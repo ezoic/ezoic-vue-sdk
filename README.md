@@ -552,6 +552,25 @@ placeholder element itself:
 <div id="ezoic-pub-ad-placeholder-101"></div>
 ```
 
+## Examples
+
+A runnable Vite + Vue 3 demo lives in [`examples/`](./examples). It exercises
+every SDK feature on one page — display ads and zero-config `location`
+placements, numeric-id placements, dynamic incremental `showAds`, simulated SPA
+navigation via `useEzoicPageView()`, consent/config, rewarded ads, and video —
+with an on-page event log.
+
+The demo resolves `@ezoic/vue-sdk` to the built `dist/` via an alias, so build
+the SDK first, then run the demo:
+
+```sh
+npm ci && npm run build           # from the repo root — builds dist/
+cd examples && npm install && npm run dev
+```
+
+On localhost ads do not fill (no Ezoic demand for localhost); the demo proves
+wiring and structure. See [`examples/README.md`](./examples/README.md).
+
 ## Roadmap
 
 1. Package skeleton ✅
@@ -562,7 +581,7 @@ placeholder element itself:
 6. CMP/consent + typed `config()` ✅
 7. Rewarded ads (`useEzoicRewarded()`) ✅
 8. Video (`<EzoicVideo>`, `<EzoicVideoEmbed>`) ✅
-9. Docs + demo app
+9. Docs + demo app ✅ (see [`examples/`](./examples))
 
 See [CHANGELOG.md](./CHANGELOG.md) for released changes.
 
