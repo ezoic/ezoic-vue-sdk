@@ -1,12 +1,20 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { CMP_SCRIPT_URLS, STANDALONE_SCRIPT_URL } from './constants';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  CMP_SCRIPT_URLS,
+  OPEN_VIDEO_SCRIPT_URL,
+  STANDALONE_SCRIPT_URL,
+} from './constants';
 import {
   CMD_QUEUE_STUB,
   REWARDED_CMD_QUEUE_STUB,
+  ensureOpenVideoQueue,
   ensureRewardedCmdQueue,
   injectEzoicScripts,
+  injectOpenVideoScript,
   injectRewardedLoader,
+  pushOpenVideoPlayer,
 } from './scripts';
+import type { OpenVideoPlayerEntry, OpenVideoPlayersQueue } from './global';
 
 const [CMP1, CMP2] = CMP_SCRIPT_URLS;
 const STUB_SELECTOR = 'script[data-ezoic-vue-sdk="cmd-stub"]';
@@ -200,5 +208,88 @@ describe('injectRewardedLoader', () => {
     expect(
       document.querySelectorAll(`script[src="${REWARDED_LOADER_URL}"]`),
     ).toHaveLength(1);
+  });
+});
+
+describe('Open Video helpers', () => {
+  const OPEN_VIDEO_SELECTOR = `script[src="${OPEN_VIDEO_SCRIPT_URL}"]`;
+  const entry = (): OpenVideoPlayerEntry => ({
+    target: document.createElement('div'),
+    videoID: 'abc',
+  });
+
+  beforeEach(() => {
+    document.head.innerHTML = '';
+    delete window.openVideoPlayers;
+  });
+
+  afterEach(() => {
+    // Unstub first: the no-window test stubs `window` to undefined, so touching
+    // window before restoring it would throw.
+    vi.unstubAllGlobals();
+    document.head.innerHTML = '';
+    delete window.openVideoPlayers;
+  });
+
+  describe('ensureOpenVideoQueue', () => {
+    it('seeds window.openVideoPlayers as an array when missing', () => {
+      ensureOpenVideoQueue();
+      expect(Array.isArray(window.openVideoPlayers)).toBe(true);
+    });
+
+    it('does not overwrite a truthy handler object', () => {
+      const handler = { push: vi.fn(), visited: true };
+      window.openVideoPlayers = handler as unknown as OpenVideoPlayersQueue;
+      ensureOpenVideoQueue();
+      expect(window.openVideoPlayers).toBe(
+        handler as unknown as OpenVideoPlayersQueue,
+      );
+      expect(handler.visited).toBe(true);
+    });
+  });
+
+  describe('injectOpenVideoScript', () => {
+    it('injects the script async and seeds the queue', () => {
+      injectOpenVideoScript();
+      const el = document.querySelector<HTMLScriptElement>(OPEN_VIDEO_SELECTOR);
+      expect(el?.async).toBe(true);
+      expect(Array.isArray(window.openVideoPlayers)).toBe(true);
+    });
+
+    it('is idempotent: repeated calls add no duplicate script', () => {
+      injectOpenVideoScript();
+      injectOpenVideoScript();
+      injectOpenVideoScript();
+      expect(document.querySelectorAll(OPEN_VIDEO_SELECTOR)).toHaveLength(1);
+    });
+  });
+
+  describe('pushOpenVideoPlayer', () => {
+    it('seeds the queue and pushes when a window is present', () => {
+      const e = entry();
+      expect(pushOpenVideoPlayer(e)).toBe(true);
+      const q = window.openVideoPlayers as unknown as OpenVideoPlayerEntry[];
+      expect(q).toHaveLength(1);
+      expect(q[0]).toBe(e);
+    });
+
+    it('pushes to an existing handler without replacing it', () => {
+      const push = vi.fn();
+      const handler = { push, visited: true };
+      window.openVideoPlayers = handler as unknown as OpenVideoPlayersQueue;
+      const e = entry();
+
+      expect(pushOpenVideoPlayer(e)).toBe(true);
+      expect(window.openVideoPlayers).toBe(
+        handler as unknown as OpenVideoPlayersQueue,
+      );
+      expect(push).toHaveBeenCalledTimes(1);
+      expect(push).toHaveBeenCalledWith(e);
+    });
+
+    it('returns false when there is no window', () => {
+      vi.stubGlobal('window', undefined);
+      expect(pushOpenVideoPlayer(entry())).toBe(false);
+    });
   });
 });

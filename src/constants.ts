@@ -11,6 +11,16 @@
 export const STANDALONE_SCRIPT_URL = 'https://www.ezojs.com/ezoic/sa.min.js';
 
 /**
+ * Open Video embed script. Powers the inline video embeds rendered by
+ * `<EzoicVideoEmbed>`: once loaded it drains `window.openVideoPlayers` and
+ * mounts a player into each pushed container. It is independent of the
+ * standalone ad bundle and is injected on demand (async) by the embed
+ * component. See the Ezoic video docs:
+ * https://docs.ezoic.com/docs/ezoicads/integration/
+ */
+export const OPEN_VIDEO_SCRIPT_URL = 'https://open.video/video.js';
+
+/**
  * Gatekeeper CMP consent scripts, in required load order.
  *
  * Both MUST be injected before {@link STANDALONE_SCRIPT_URL}. Each must carry

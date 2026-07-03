@@ -19,6 +19,7 @@ import type {
   RewardedOverlayText,
   RewardedSiteWidePlacements,
   ShowAdsArg,
+  VideoDefineEntry,
 } from './types';
 
 /** A function queued on `ezstandalone.cmd`. */
@@ -124,6 +125,56 @@ export interface EzstandaloneGlobal {
    * experience; each defaults to `true` when the placements object is omitted.
    */
   initRewardedAds?: (siteWidePlacements?: RewardedSiteWidePlacements) => void;
+  /**
+   * Register video placeholders by publisher div id without loading ad code.
+   * Clears any prior registration, then records the given ids. Register-only —
+   * it does not load; pair it with a page display or use
+   * {@link EzstandaloneGlobal.displayMoreVideo} to load.
+   */
+  defineVideo?: (...entries: VideoDefineEntry[]) => void;
+  /**
+   * Register and load video ad code for the given publisher div ids. Registers
+   * any not-yet-registered ids and loads ad code for the newly registered ones
+   * in one call.
+   */
+  displayMoreVideo?: (...divIds: string[]) => void;
+  /**
+   * Tear down the given video placeholder div ids. Only unregisters an id whose
+   * element still exists in the DOM, so callers must invoke it while the div is
+   * still present.
+   */
+  destroyVideoPlaceholders?: (...divIds: string[]) => void;
+}
+
+/**
+ * A single entry pushed onto {@link OpenVideoPlayersQueue} to mount an Open
+ * Video inline embed. The embed script reads `target` (the container element to
+ * render the player into) and `videoID`; `float` and `autoplay` are optional
+ * behavior flags it honors when present.
+ */
+export interface OpenVideoPlayerEntry {
+  /** Container element the embed renders the player into. */
+  target: Element;
+  /** Publisher video id to play. */
+  videoID: string;
+  /** Enable the floating player behavior. Omit to use the embed default. */
+  float?: boolean;
+  /** Autoplay the video. Omit to use the embed default. */
+  autoplay?: boolean;
+}
+
+/**
+ * The `window.openVideoPlayers` queue.
+ *
+ * Before the Open Video embed script loads, `openVideoPlayers` is a plain array
+ * and `push(entry)` just appends. After it loads the script replaces the value
+ * with a live handler object whose `push(entry)` mounts a player immediately.
+ * Both shapes expose `push(entry)`, the only operation this SDK relies on, so
+ * the queue is typed to that common contract (an `OpenVideoPlayerEntry[]`
+ * satisfies it) — mirroring {@link EzstandaloneCmdQueue}.
+ */
+export interface OpenVideoPlayersQueue {
+  push(entry: OpenVideoPlayerEntry): void;
 }
 
 /**
@@ -223,5 +274,12 @@ declare global {
     __tcfapi?: TcfApi;
     /** Ezoic rewarded-ads global, present once the rewarded loader initializes. */
     ezRewardedAds?: EzRewardedGlobal;
+    /**
+     * Canonical Open Video queue, seeded by this SDK and consumed by the Open
+     * Video embed script (`window.humixPlayers` is a legacy alias the embed
+     * creator still honors — this SDK pushes to the canonical
+     * `openVideoPlayers`).
+     */
+    openVideoPlayers?: OpenVideoPlayersQueue;
   }
 }

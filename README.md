@@ -9,9 +9,10 @@ Official [Ezoic](https://www.ezoic.com/) ads SDK for Vue 3.
 > (`useEzoicPageView()` plus the plugin's `spa`/`router` options), CMP/consent
 > helpers (`useEzoicConsent()` plus `config()` and the format toggles), and
 > rewarded ads (`useEzoicRewarded()` plus `initRewardedAds()` and the plugin's
-> `rewardedLoaderUrl` option), on top of the verified foundation (public script
-> URLs, the placeholder DOM contract, and shared types). Video is on the roadmap
-> below.
+> `rewardedLoaderUrl` option), and video (`<EzoicVideo>` for ad-bundle video
+> placeholders and `<EzoicVideoEmbed>` for Open Video inline embeds), on top of
+> the verified foundation (public script URLs, the placeholder DOM contract, and
+> shared types).
 
 ## Install
 
@@ -454,6 +455,75 @@ ezoic.initRewardedAds(); // enable all four
 ezoic.initRewardedAds({ video: false }); // enable all except video
 ```
 
+## Video
+
+The SDK ships two independent video paths.
+
+### Ezoic video placeholders (`<EzoicVideo>`)
+
+`<EzoicVideo>` renders an Ezoic video-ad placeholder driven by the ad bundle. It
+requires the plugin (see [Setup](#setup)) and uses a **publisher-chosen** div id
+(not the numeric `ezoic-pub-ad-placeholder-<n>` display convention). On mount it
+loads the video ad code; on unmount it tears the placeholder down.
+
+```vue
+<script setup lang="ts">
+import { EzoicVideo } from '@ezoic/vue-sdk';
+</script>
+
+<template>
+  <!-- Publisher-chosen div id. Wrap it to size/position the placeholder. -->
+  <div class="video-slot">
+    <EzoicVideo :div-id="'my-video-slot'" />
+  </div>
+</template>
+```
+
+- **`div-id`** is required and is your own string id. It is rendered verbatim as
+  the placeholder div's `id`.
+- **One call loads it.** On mount the SDK calls `displayMoreVideo(divId)`, which
+  both registers the id and loads its ad code in a single call.
+- **Automatic teardown.** Unmounting calls `destroyVideoPlaceholders(divId)`
+  while the div is still in the DOM, so the id is released cleanly and can be
+  reused on a remount.
+- **Duplicate guard.** Mounting two `<EzoicVideo>` with the same `div-id` logs a
+  warning and loads the video only once.
+- **Bare by design.** Like `<EzoicAd>`, the placeholder div carries no styling
+  (`class`/`style` on `<EzoicVideo>` is not forwarded). Wrap it to position it.
+- **SSR-safe.** The div renders during server render; the load runs only on the
+  client after mount.
+
+For advanced register-now / load-on-pageview flows, `useEzoic()` also exposes
+`defineVideo(...)` (register-only — it does not load), `displayMoreVideo(...)`,
+and `destroyVideoPlaceholders(...)` directly.
+
+### Open Video embeds (`<EzoicVideoEmbed>`)
+
+`<EzoicVideoEmbed>` renders an Open Video inline embed. It is **self-contained**
+— it does not require the plugin and injects the Open Video script itself — so
+you can drop it in anywhere:
+
+```vue
+<script setup lang="ts">
+import { EzoicVideoEmbed } from '@ezoic/vue-sdk';
+</script>
+
+<template>
+  <EzoicVideoEmbed video-id="abc123" :float="true" :autoplay="false" />
+</template>
+```
+
+- **`video-id`** is required — the publisher video id to play.
+- **`float`** and **`autoplay`** are the supported options (there is no `loop`).
+  Each is optional and passed through to the embed only when you set it;
+  otherwise the embed's own default applies.
+- **Publisher container.** The rendered container is yours to size and position,
+  so a `class`/`style` on `<EzoicVideoEmbed>` _is_ applied to it.
+- **Self-injecting.** On mount it injects `https://open.video/video.js` (once,
+  async, idempotent) and queues the embed; you do not need the plugin.
+- **SSR-safe.** The container div renders during server render; the script
+  injection and embed request run only on the client after mount.
+
 ## Foundation exports
 
 The SDK also exposes the low-level building blocks:
@@ -491,7 +561,7 @@ placeholder element itself:
 5. Zero-config placements (`<EzoicAd location="under_first_paragraph" />`) ✅
 6. CMP/consent + typed `config()` ✅
 7. Rewarded ads (`useEzoicRewarded()`) ✅
-8. Video (`<EzoicVideo>`, `<HumixVideo>`)
+8. Video (`<EzoicVideo>`, `<EzoicVideoEmbed>`) ✅
 9. Docs + demo app
 
 See [CHANGELOG.md](./CHANGELOG.md) for released changes.

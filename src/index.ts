@@ -10,10 +10,14 @@
  * helpers (`useEzoicConsent()`, plus `config()` and the format toggles on
  * `useEzoic()`), and rewarded ads (`useEzoicRewarded()`, plus
  * `initRewardedAds()` on `useEzoic()` and the plugin's `rewardedLoaderUrl`
- * option). Video lands in a later release — see CHANGELOG.md.
+ * option), and video — the `<EzoicVideo>` ad-bundle video placeholder and the
+ * `<EzoicVideoEmbed>` Open Video inline embed, plus the `defineVideo`,
+ * `displayMoreVideo`, and `destroyVideoPlaceholders` passthroughs on
+ * `useEzoic()`.
  */
 export {
   STANDALONE_SCRIPT_URL,
+  OPEN_VIDEO_SCRIPT_URL,
   CMP_SCRIPT_URLS,
   PLACEHOLDER_ID_PREFIX,
   MIN_PLACEHOLDER_ID,
@@ -32,6 +36,8 @@ export {
 } from './locations';
 export { EzoicPlugin } from './plugin';
 export { EzoicAd } from './EzoicAd';
+export { EzoicVideo } from './EzoicVideo';
+export { EzoicVideoEmbed } from './EzoicVideoEmbed';
 export { useEzoic } from './useEzoic';
 export { useEzoicPageView } from './pageView';
 export { useEzoicConsent } from './consent';
@@ -56,6 +62,7 @@ export type {
   RewardedContentLockerAction,
   RewardedSiteWidePlacements,
   RewardedFlowStatus,
+  VideoDefineEntry,
 } from './types';
 export type { EzoicPageViewOptions } from './pageView';
 export type { EzoicConsentState } from './consent';
@@ -67,4 +74,6 @@ export type {
   TcfData,
   TcfApi,
   EzRewardedGlobal,
+  OpenVideoPlayerEntry,
+  OpenVideoPlayersQueue,
 } from './global';

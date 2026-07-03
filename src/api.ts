@@ -20,6 +20,7 @@ import type {
   EzoicConfigOptions,
   RewardedSiteWidePlacements,
   ShowAdsArg,
+  VideoDefineEntry,
 } from './types';
 
 /**
@@ -127,5 +128,11 @@ export function createEzoicApi(
       push(() => window.ezstandalone?.setDisablePersonalizedAds?.(disable)),
     initRewardedAds: (placements?: RewardedSiteWidePlacements): void =>
       push(() => window.ezstandalone?.initRewardedAds?.(placements)),
+    defineVideo: (...entries: VideoDefineEntry[]): void =>
+      push(() => window.ezstandalone?.defineVideo?.(...entries)),
+    displayMoreVideo: (...divIds: string[]): void =>
+      push(() => window.ezstandalone?.displayMoreVideo?.(...divIds)),
+    destroyVideoPlaceholders: (...divIds: string[]): void =>
+      push(() => window.ezstandalone?.destroyVideoPlaceholders?.(...divIds)),
   };
 }

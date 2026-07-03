@@ -11,8 +11,12 @@
  *
  * @see https://docs.ezoic.com/docs/ezoicads/integration/
  */
-import { CMP_SCRIPT_URLS, STANDALONE_SCRIPT_URL } from './constants';
-import type { EzoicCmdFn } from './global';
+import {
+  CMP_SCRIPT_URLS,
+  OPEN_VIDEO_SCRIPT_URL,
+  STANDALONE_SCRIPT_URL,
+} from './constants';
+import type { EzoicCmdFn, OpenVideoPlayerEntry } from './global';
 
 /** Attribute marking inline scripts this SDK injects, so re-installs dedup. */
 const SDK_MARKER_ATTR = 'data-ezoic-vue-sdk';
@@ -238,4 +242,46 @@ function ensureRewardedCmdStub(): void {
 export function injectRewardedLoader(loaderUrl: string): void {
   ensureRewardedCmdStub();
   injectExternalScript(loaderUrl, { async: true });
+}
+
+/**
+ * Ensures `window.openVideoPlayers` exists as a plain array so embed entries can
+ * be queued before the Open Video script loads. Mirrors {@link ensureCmdQueue}:
+ * it only seeds when the value is falsy. It must never overwrite a truthy value
+ * — once the embed script loads it replaces `openVideoPlayers` with a live
+ * handler object, and clobbering that would silently drop every pushed entry.
+ * Assumes a browser environment; callers guard SSR.
+ */
+export function ensureOpenVideoQueue(): void {
+  if (!window.openVideoPlayers) {
+    const queue: OpenVideoPlayerEntry[] = [];
+    window.openVideoPlayers = queue;
+  }
+}
+
+/**
+ * Injects the Open Video embed script (async), after ensuring the
+ * `openVideoPlayers` queue exists so entries pushed before it loads are honored.
+ *
+ * Idempotent: {@link findExternalScript} dedups the script, so repeated calls
+ * add nothing. Browser-only — callers must not invoke it during SSR.
+ */
+export function injectOpenVideoScript(): void {
+  ensureOpenVideoQueue();
+  injectExternalScript(OPEN_VIDEO_SCRIPT_URL, { async: true });
+}
+
+/**
+ * Pushes an embed entry onto `window.openVideoPlayers` so the Open Video script
+ * mounts a player into the entry's `target`. Returns `false` (queuing nothing)
+ * during SSR or when no queue is available, so callers can skip cleanly instead
+ * of throwing. Mirrors the rewarded queue's `pushRewarded`.
+ */
+export function pushOpenVideoPlayer(entry: OpenVideoPlayerEntry): boolean {
+  if (typeof window === 'undefined') return false;
+  ensureOpenVideoQueue();
+  const q = window.openVideoPlayers;
+  if (!q) return false;
+  q.push(entry);
+  return true;
 }

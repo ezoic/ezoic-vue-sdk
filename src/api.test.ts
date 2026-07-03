@@ -263,6 +263,40 @@ describe('createEzoicApi', () => {
     expect(() => api.initRewardedAds()).not.toThrow();
   });
 
+  it('forwards the video passthroughs through the command queue', () => {
+    const defineVideo = vi.fn();
+    const displayMoreVideo = vi.fn();
+    const destroyVideoPlaceholders = vi.fn();
+    window.ezstandalone = {
+      cmd: { push: immediatePush },
+      defineVideo,
+      displayMoreVideo,
+      destroyVideoPlaceholders,
+    };
+    const api = createEzoicApi(ref(false), immediatePush);
+
+    api.defineVideo('v1', { divID: 'v2' });
+    api.displayMoreVideo('v1', 'v2');
+    api.destroyVideoPlaceholders('v1');
+
+    expect(defineVideo).toHaveBeenCalledTimes(1);
+    expect(defineVideo).toHaveBeenCalledWith('v1', { divID: 'v2' });
+    expect(displayMoreVideo).toHaveBeenCalledTimes(1);
+    expect(displayMoreVideo).toHaveBeenCalledWith('v1', 'v2');
+    expect(destroyVideoPlaceholders).toHaveBeenCalledTimes(1);
+    expect(destroyVideoPlaceholders).toHaveBeenCalledWith('v1');
+  });
+
+  it('video passthroughs are safe no-ops when the bundle exposes no methods', () => {
+    window.ezstandalone = { cmd: { push: immediatePush } };
+    const api = createEzoicApi(ref(false), immediatePush);
+    expect(() => {
+      api.defineVideo('v1');
+      api.displayMoreVideo('v1');
+      api.destroyVideoPlaceholders('v1');
+    }).not.toThrow();
+  });
+
   it('config, toggles and consent setters are safe no-ops when the bundle exposes no methods', async () => {
     window.ezstandalone = { cmd: { push: immediatePush } };
     const api = createEzoicApi(ref(false), immediatePush);

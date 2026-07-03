@@ -191,6 +191,32 @@ export interface EzoicApi {
    * {@link useEzoicRewarded}.
    */
   initRewardedAds: (placements?: RewardedSiteWidePlacements) => void;
+  /**
+   * Register video placeholders without loading their ad code. Runs
+   * `ezstandalone.defineVideo(...)`, which clears any prior registration and
+   * records the given publisher div ids. Register-only: it does **not** request
+   * ads, so pair it with a page display (a pageview `showAds()`) or use
+   * {@link EzoicApi.displayMoreVideo} to both register and load incrementally.
+   * `<EzoicVideo>` does not use this — it calls `displayMoreVideo` directly.
+   * Queued on the command queue and a no-op during SSR.
+   */
+  defineVideo: (...entries: VideoDefineEntry[]) => void;
+  /**
+   * Register and load video ad code for the given publisher div ids. Runs
+   * `ezstandalone.displayMoreVideo(...)`, which registers any not-yet-registered
+   * ids and loads ad code for the newly registered ones in a single call — the
+   * building block `<EzoicVideo>` uses on mount. Queued on the command queue and
+   * a no-op during SSR.
+   */
+  displayMoreVideo: (...divIds: string[]) => void;
+  /**
+   * Tear down the given video placeholder div ids via
+   * `ezstandalone.destroyVideoPlaceholders(...)`. The div must still be in the
+   * DOM when this runs — the bundle only unregisters an id whose element still
+   * exists — so call it before the element is removed. Queued on the command
+   * queue and a no-op during SSR.
+   */
+  destroyVideoPlaceholders: (...divIds: string[]) => void;
 }
 
 /**
@@ -249,6 +275,14 @@ export interface ShowAdsPlaceholder {
  * {@link ShowAdsPlaceholder} object form.
  */
 export type ShowAdsArg = number | ShowAdsPlaceholder;
+
+/**
+ * A video placeholder argument to `ezstandalone.defineVideo(...)`: either a
+ * bare publisher-chosen div id string, or the object form `{ divID }`. Video
+ * placeholders use a publisher-chosen div id rather than the numeric
+ * `ezoic-pub-ad-placeholder-*` display-ad convention.
+ */
+export type VideoDefineEntry = string | { divID: string };
 
 /**
  * Result delivered to the callback of `ezRewardedAds.request(...)`. Reports

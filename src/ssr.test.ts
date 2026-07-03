@@ -5,6 +5,8 @@ import { renderToString } from 'vue/server-renderer';
 import {
   EzoicAd,
   EzoicPlugin,
+  EzoicVideo,
+  EzoicVideoEmbed,
   useEzoic,
   useEzoicConsent,
   useEzoicPageView,
@@ -77,6 +79,29 @@ describe('server-side rendering', () => {
 
     const html = await renderToString(app);
     expect(html).not.toContain('ezoic-pub-ad-placeholder-');
+  });
+
+  it('renders <EzoicVideo> to its placeholder div without touching the DOM', async () => {
+    const app = createApp({
+      setup() {
+        return () => h(EzoicVideo, { divId: 'x' });
+      },
+    });
+    app.use(EzoicPlugin);
+
+    const html = await renderToString(app);
+    expect(html).toContain('id="x"');
+  });
+
+  it('renders <EzoicVideoEmbed> to its container div without touching the DOM', async () => {
+    const app = createApp({
+      setup() {
+        return () => h(EzoicVideoEmbed, { videoId: 'y' });
+      },
+    });
+
+    const html = await renderToString(app);
+    expect(html).toContain('<div></div>');
   });
 
   it('useEzoicPageView renders without touching the DOM', async () => {

@@ -19,6 +19,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Video. Two independent components. `<EzoicVideo>` renders an Ezoic video-ad
+  placeholder driven by the ad bundle: it takes a publisher-chosen `divId`,
+  renders a bare `<div id="<divId>">` (`inheritAttrs: false`), and on mount
+  calls `ezstandalone.displayMoreVideo(divId)` alone — the single call that both
+  registers the id and loads its ad code (it must not pre-register via
+  `defineVideo`, which would make the load a no-op). On unmount it calls
+  `destroyVideoPlaceholders(divId)` in `onBeforeUnmount`, while the div is still
+  in the DOM, so the id unregisters cleanly; a module-level duplicate guard
+  loads a repeated `divId` only once. It requires the plugin and is SSR-safe.
+  `<EzoicVideoEmbed>` renders an Open Video inline embed and is self-contained
+  (no plugin): it injects `https://open.video/video.js` (async, idempotent) and
+  pushes `{ target, videoID, float?, autoplay? }` onto the canonical
+  `window.openVideoPlayers` queue, seeding it only when falsy so a live embed
+  handler is never clobbered; `float`/`autoplay` are included only when set
+  (there is no `loop`), fall-through attributes size the container, and it is
+  SSR-safe. `useEzoic()` gains `defineVideo(...)` (register-only),
+  `displayMoreVideo(...)`, and `destroyVideoPlaceholders(...)` passthroughs. New
+  scripts helpers `ensureOpenVideoQueue`, `injectOpenVideoScript`, and
+  `pushOpenVideoPlayer`. New exports: `EzoicVideo`, `EzoicVideoEmbed`,
+  `OPEN_VIDEO_SCRIPT_URL`, and the `OpenVideoPlayerEntry`,
+  `OpenVideoPlayersQueue`, and `VideoDefineEntry` types; `EzstandaloneGlobal`
+  gains the three video methods.
 - Dev-mode console warning when an `<EzoicAd location="...">` zero-config
   placement is shown without `sizes`. Location placeholders resolve into the
   reserved 900-range, which has no dashboard sizing, so the warning points to
