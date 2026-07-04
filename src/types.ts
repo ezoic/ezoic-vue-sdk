@@ -41,12 +41,16 @@ export interface EzoicPluginOptions {
    */
   router?: EzoicRouter;
   /**
-   * Publisher-specific loader URL for the Ezoic rewarded-ads script
-   * (`/porpoiseant/ezadloadrewarded.js`, served from your Ezoic ad host). When
-   * set, the plugin injects the rewarded loader (async, after the standalone
-   * bundle) so `window.ezRewardedAds` becomes usable; this is required for
-   * rewarded ads to function. Leave it unset if you do not use rewarded ads.
-   * Find the exact URL in your Ezoic dashboard / integration docs.
+   * **Escape hatch — usually omit this.** An explicit site-specific loader URL
+   * for the Ezoic rewarded-ads script
+   * (`{your-ad-host}/porpoiseant/ezadloadrewarded.js`). When set, the plugin
+   * injects it (async, after the standalone bundle) as a `<script>` tag.
+   *
+   * On a normal Ezoic JS-integrated page leave this unset: `useEzoicRewarded()`
+   * defaults to calling `ezstandalone.initRewardedAds(...)` so the Ezoic runtime
+   * serves the host-correct rewarded loader itself. Supply a URL only for pages
+   * that are not JS-integrated through this SDK; find the exact URL in your Ezoic
+   * dashboard / integration docs.
    */
   rewardedLoaderUrl?: string;
 }

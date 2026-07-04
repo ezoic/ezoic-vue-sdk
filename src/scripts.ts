@@ -238,21 +238,89 @@ export function ensureEzNamespace(): void {
 }
 
 /**
- * Injects the publisher-specific rewarded-ads loader
- * (`/porpoiseant/ezadloadrewarded.js`), preceded by the rewarded cmd-queue
- * stub so `ezRewardedAds.cmd.push(...)` is safe before it initializes.
+ * Injects an explicit rewarded-ads loader
+ * (`{your-ad-host}/porpoiseant/ezadloadrewarded.js`), preceded by the rewarded
+ * cmd-queue stub so `ezRewardedAds.cmd.push(...)` is safe before it initializes.
+ *
+ * This is the **escape-hatch** path: on a normal Ezoic JS-integrated page the
+ * Ezoic runtime serves the host-correct rewarded loader itself in response to
+ * `ezstandalone.initRewardedAds(...)`, so no URL is injected. Supply a URL (via
+ * the plugin's `rewardedLoaderUrl` option or the composable's `loaderUrl`) only
+ * for pages that are not JS-integrated through this SDK.
  *
  * Idempotent: {@link findExternalScript} dedups the loader and the stub marker
  * dedups the inline stub, so repeated calls add nothing. Browser-only — callers
- * must not invoke it during SSR. The loader URL is publisher-specific, so it is
- * never hardcoded; it is injected only when a URL is supplied.
+ * must not invoke it during SSR.
  *
- * @param loaderUrl the publisher's rewarded loader URL.
+ * @param loaderUrl the explicit rewarded loader URL to inject.
  */
 export function injectRewardedLoader(loaderUrl: string): void {
   ensureRewardedCmdStub();
   ensureEzNamespace();
   injectExternalScript(loaderUrl, { async: true });
+  explicitRewardedLoaderInjected = true;
+}
+
+/**
+ * The path fragment every Ezoic rewarded loader URL contains, regardless of the
+ * per-site host. Used to sniff a rewarded loader `<script>` in the DOM —
+ * whether this SDK injected it or the host HTML hand-included it directly.
+ */
+const REWARDED_LOADER_PATH = '/porpoiseant/ezadloadrewarded.js';
+
+/**
+ * Module-level record that {@link injectRewardedLoader} ran (the plugin's
+ * `rewardedLoaderUrl` option or the composable's `loaderUrl`). This is the
+ * primary escape-hatch signal because it survives the case where the host HTML
+ * pre-defines `window.ezRewardedAds`, which makes `ensureRewardedCmdStub` skip
+ * the inline stub node — so the stub-marker DOM check alone would miss it.
+ */
+let explicitRewardedLoaderInjected = false;
+
+/**
+ * Test-only: reset the module-level {@link explicitRewardedLoaderInjected} flag
+ * so each test starts from a clean per-page state. Not part of the public
+ * package surface (not re-exported from `index.ts`).
+ */
+export function resetRewardedLoaderInjectedForTests(): void {
+  explicitRewardedLoaderInjected = false;
+}
+
+/**
+ * Reports whether an explicit rewarded loader escape hatch is active — i.e. a
+ * `{host}/porpoiseant/ezadloadrewarded.js` loader has been (or is being)
+ * supplied instead of letting the Ezoic runtime serve it.
+ *
+ * The composable's default (runtime-served) mode uses this to decide whether to
+ * call `initRewardedAds`: when a loader is already present it must not, or the
+ * runtime would serve a duplicate loader. Three independent signals, any of
+ * which suffices:
+ *
+ * 1. {@link injectRewardedLoader} recorded a module-level flag (covers the
+ *    host-provided `window.ezRewardedAds` case, where no inline stub node
+ *    exists).
+ * 2. The rewarded cmd-queue stub marker node is in the DOM (SDK inline stub).
+ * 3. Any `<script src>` whose URL contains the rewarded loader path — covers
+ *    both this SDK's injected loader and a loader the host HTML hand-included.
+ *
+ * Plain `window.ezRewardedAds` existence is intentionally **not** a signal: the
+ * composable itself creates that queue object via `ensureRewardedCmdQueue`, so
+ * it would false-positive and suppress the default mode it is meant to enable.
+ * Returns `false` during SSR.
+ */
+export function isRewardedLoaderInjected(): boolean {
+  if (explicitRewardedLoaderInjected) return true;
+  if (typeof document === 'undefined') return false;
+  if (
+    document.querySelector(
+      `script[${SDK_MARKER_ATTR}="${REWARDED_CMD_STUB_MARKER}"]`,
+    ) !== null
+  ) {
+    return true;
+  }
+  return Array.from(
+    document.querySelectorAll<HTMLScriptElement>('script[src]'),
+  ).some((el) => (el.getAttribute('src') ?? '').includes(REWARDED_LOADER_PATH));
 }
 
 /**

@@ -367,34 +367,9 @@ const { tcfLoaded, consentString, gdprApplies, eventStatus } =
 ## Rewarded ads
 
 Rewarded ads let a visitor opt in to watch an ad in exchange for a reward (unlock
-content, in-game currency, etc.). They use a separate, publisher-specific loader
-script, so enable them by passing its URL to the plugin:
-
-```ts
-import { createApp } from 'vue';
-import { EzoicPlugin } from '@ezoic/vue-sdk';
-import App from './App.vue';
-
-createApp(App)
-  .use(EzoicPlugin, {
-    // Your publisher-specific rewarded loader. Find the exact host in your
-    // Ezoic dashboard / integration docs — it is served from your Ezoic ad
-    // host (e.g. https://go.ezodn.com/...), not a fixed URL.
-    rewardedLoaderUrl:
-      'https://YOUR-EZOIC-LOADER-HOST/porpoiseant/ezadloadrewarded.js',
-  })
-  .mount('#app');
-```
-
-The loader is injected async, after the standalone bundle, and only when the
-option is set. Injection is idempotent and SSR-safe.
-
-### `useEzoicRewarded()`
-
-The composable wraps `window.ezRewardedAds`. Each callback-style method returns
-a Promise that settles when the ad flow resolves (including no-fill and
-cancellation — no timers are involved), and a reactive `status` tracks the
-lifecycle (`idle` → `initiated` → `displayed` → `closed`):
+content, in-game currency, etc.). On an Ezoic JS-integrated page — one this SDK
+bootstraps with `EzoicPlugin` — **no loader URL is required**. Enable them by
+using `useEzoicRewarded()`:
 
 ```vue
 <script setup lang="ts">
@@ -416,9 +391,33 @@ async function unlock() {
 </template>
 ```
 
-If you inject the loader yourself instead of via the plugin, pass its URL to the
-composable: `useEzoicRewarded({ loaderUrl: '…/porpoiseant/ezadloadrewarded.js' })`.
-Either way the composable shares the same `ezRewardedAds` global.
+On mount, the composable calls `ezstandalone.initRewardedAds(...)` once per page
+(reusing `useEzoic().initRewardedAds`), and the Ezoic runtime serves the
+host-correct rewarded loader in its own response and drains
+`window.ezRewardedAds.cmd`. You do not supply, and should not hardcode, a
+per-site loader URL.
+
+- **Scope the placements (optional):** pass
+  `useEzoicRewarded({ placements: { anchor, interstitial, video, sideRails } })`
+  to control which site-wide rewarded placements the runtime enables (each
+  defaults to `true`; omitted keys stay enabled). The first `useEzoicRewarded()`
+  to mount wins if several set different placements.
+- **Escape hatch — a loader URL:** only for pages that are **not** Ezoic
+  JS-integrated through this SDK (they do not load `sa.min.js` via the plugin).
+  Supply the site-specific `{your-ad-host}/porpoiseant/ezadloadrewarded.js` (from
+  your Ezoic dashboard rewarded snippet) either on the composable
+  (`useEzoicRewarded({ loaderUrl })`) or on the plugin
+  (`app.use(EzoicPlugin, { rewardedLoaderUrl })`). It is injected as a `<script>`
+  tag instead of letting the runtime serve it, and `placements` is ignored in
+  this mode. Injection is idempotent and SSR-safe.
+
+### `useEzoicRewarded()`
+
+The composable wraps `window.ezRewardedAds`. Each callback-style method returns
+a Promise that settles when the ad flow resolves (including no-fill and
+cancellation — no timers are involved), and a reactive `status` tracks the
+lifecycle (`idle` → `initiated` → `displayed` → `closed`). See the usage example
+above.
 
 The full method set: `register()` (fire-and-forget pageview tracking),
 `request(config?)`, `show(config?)`, `requestAndShow(config?)`,
@@ -445,9 +444,11 @@ await contentLocker('https://example.com/premium');
 ### Site-wide setup: `initRewardedAds()`
 
 The ambient rewarded formats (anchor, interstitial, video, side rails) are
-declared once via `initRewardedAds()`, which lives on `useEzoic()` (it is an
-`ezstandalone` method, not part of `useEzoicRewarded`). Each format defaults to
-`true`:
+declared via `ezstandalone.initRewardedAds()`. In the default mode above,
+`useEzoicRewarded({ placements })` calls it for you once at mount. It also lives
+directly on `useEzoic()` (it is an `ezstandalone` method) if you need to
+reconfigure the runtime's site-wide rewarded placements later. Each format
+defaults to `true`:
 
 ```ts
 const ezoic = useEzoic();
@@ -481,6 +482,13 @@ import { EzoicVideo } from '@ezoic/vue-sdk';
 
 - **`div-id`** is required and is your own string id. It is rendered verbatim as
   the placeholder div's `id`.
+- **Requires page-level ad init.** The Ezoic runtime only requests queued video
+  placeholders once the page's ad scripts have loaded — which happens when the
+  page runs some `showAds(...)` (any display placement, e.g. an `<EzoicAd>` or
+  `useEzoic().showAds`) or `initRewardedAds()` (via `useEzoicRewarded()`). A page
+  whose only Ezoic surface is `<EzoicVideo>` never triggers that load, so the
+  video stays queued and never fills. Mount at least one display ad, or enable
+  rewarded ads, on any page that uses `<EzoicVideo>`.
 - **One call loads it.** On mount the SDK calls `displayMoreVideo(divId)`, which
   both registers the id and loads its ad code in a single call.
 - **Automatic teardown.** Unmounting calls `destroyVideoPlaceholders(divId)`
@@ -513,7 +521,9 @@ import { EzoicVideoEmbed } from '@ezoic/vue-sdk';
 </template>
 ```
 
-- **`video-id`** is required — the publisher video id to play.
+- **`video-id`** is required — the publisher video id to play. The Open Video
+  embed renders nothing for a nonexistent id, so use a real Ezoic Open Video id
+  (the demos use `zn0TPhaPiju`).
 - **`float`** and **`autoplay`** are the supported options (there is no `loop`).
   Each is optional and passed through to the embed only when you set it;
   otherwise the embed's own default applies.

@@ -4,13 +4,34 @@
  * promise-returning (or fire-and-forget) calls and tracks the rewarded flow's
  * lifecycle as a reactive `status`.
  *
- * Like {@link useEzoicConsent}, it is decoupled from {@link EzoicPlugin}: it
- * manages its own `ezRewardedAds` command-queue stub via
- * {@link ensureRewardedCmdQueue}, so it works whether the rewarded loader was
- * injected by the plugin (`rewardedLoaderUrl` option) or by passing
- * {@link UseEzoicRewardedOptions.loaderUrl} here. It is SSR-safe — no browser
- * global is touched during setup; the loader injection, ready flip, and event
- * listeners attach in `onMounted` (client only) and detach in `onUnmounted`.
+ * It manages its own `ezRewardedAds` command-queue stub via
+ * {@link ensureRewardedCmdQueue}, so it works with the rewarded runtime however
+ * it is bootstrapped. It is SSR-safe — no browser global is touched during
+ * setup; the default init call, ready flip, and event listeners attach in
+ * `onMounted` (client only) and detach in `onUnmounted`.
+ *
+ * **Default (runtime-served) mode.** On an Ezoic JS-integrated page — one this
+ * SDK bootstraps via {@link EzoicPlugin} — no loader URL is needed. When neither
+ * {@link UseEzoicRewardedOptions.loaderUrl} nor the plugin's `rewardedLoaderUrl`
+ * is set, the composable calls `ezstandalone.initRewardedAds(placements)` once
+ * per page (through {@link useEzoic}'s `initRewardedAds`, so the ezstandalone
+ * command-queue plumbing is not duplicated). The Ezoic runtime then serves the
+ * host-correct rewarded loader in its own response and drains
+ * `window.ezRewardedAds.cmd`.
+ *
+ * **Escape hatch.** Passing {@link UseEzoicRewardedOptions.loaderUrl} (or setting
+ * the plugin's `rewardedLoaderUrl`) instead injects a site-specific
+ * `{host}/porpoiseant/ezadloadrewarded.js` loader as a `<script>` tag. Use it
+ * only for pages that are not Ezoic JS-integrated through this SDK; `placements`
+ * is ignored in that mode. A rewarded loader already present in the page — SDK-
+ * injected or hand-included in the host HTML — also suppresses the default init.
+ *
+ * **Mixed mode (rare).** If one composable passes `loaderUrl` and another uses
+ * the default on the same page, both triggers are one-way and mount order
+ * decides: whichever mounts first wins. A default-mode composable that mounts
+ * before any loader is injected calls `initRewardedAds` (guarded to once per
+ * page); a loader-URL composable that mounts first injects the loader, after
+ * which later default-mode mounts detect it and skip init. Prefer not to mix.
  *
  * Every underlying rewarded method delivers its result through a callback.
  * `request` and `show` always fire that callback in every outcome. `requestAndShow`
@@ -20,15 +41,21 @@
  * resolved result's `status` / `reward` / `msg` fields, not by whether the
  * promise settles. `contentLocker` settles via its `readyCallback`. In all
  * cases the promises here settle exactly when the ad flow resolves — no timer
- * is used. If the loader is never present (misconfiguration), the promises
- * stay pending by design; the fix is to provide a valid `loaderUrl` /
- * `rewardedLoaderUrl`, not to race the real ad flow against a timeout.
+ * is used. In default mode the loader arrives automatically after
+ * `initRewardedAds`, so a pending promise means the ad flow is still running,
+ * not a missing loader.
  */
-import { onMounted, onUnmounted, readonly, ref } from 'vue';
+import { inject, onMounted, onUnmounted, readonly, ref } from 'vue';
 import type { Ref } from 'vue';
-import { ensureRewardedCmdQueue, injectRewardedLoader } from './scripts';
+import {
+  ensureRewardedCmdQueue,
+  injectRewardedLoader,
+  isRewardedLoaderInjected,
+} from './scripts';
+import { ezoicInjectionKey } from './keys';
 import type { EzoicCmdFn } from './global';
 import type {
+  EzoicApi,
   RewardedContentLockerAction,
   RewardedContentLockerConfig,
   RewardedFlowStatus,
@@ -39,6 +66,7 @@ import type {
   RewardedRequestWithOverlayConfig,
   RewardedShowConfig,
   RewardedShowResult,
+  RewardedSiteWidePlacements,
 } from './types';
 
 /**
@@ -52,13 +80,44 @@ const REWARDED_UNAVAILABLE_MSG =
 /** Options for {@link useEzoicRewarded}. */
 export interface UseEzoicRewardedOptions {
   /**
-   * Publisher-specific rewarded loader URL
-   * (`/porpoiseant/ezadloadrewarded.js`). When provided, the composable injects
-   * the loader on mount. Omit it when the plugin already injects the loader via
-   * its `rewardedLoaderUrl` option — the composable shares the same
-   * `ezRewardedAds` global either way.
+   * **Escape hatch — usually omit this.** An explicit site-specific rewarded
+   * loader URL (`{your-ad-host}/porpoiseant/ezadloadrewarded.js`) to inject as a
+   * `<script>` tag on mount.
+   *
+   * Only supply this for pages that are **not** Ezoic JS-integrated through this
+   * SDK. On a normal integrated page leave it unset: the default mode calls
+   * `ezstandalone.initRewardedAds(...)` and the Ezoic runtime serves the
+   * host-correct loader for you (see {@link useEzoicRewarded}), so a per-site
+   * URL is neither needed nor correct. When either this or the plugin's
+   * `rewardedLoaderUrl` is set, escape-hatch mode is active and
+   * {@link placements} is ignored.
    */
   loaderUrl?: string;
+  /**
+   * Site-wide rewarded placement toggles forwarded to
+   * `ezstandalone.initRewardedAds` in the default (runtime-served) mode. Omitted
+   * keys fall back to the runtime default (all enabled). Ignored when a loader
+   * URL escape hatch is active ({@link loaderUrl} or the plugin's
+   * `rewardedLoaderUrl`).
+   */
+  placements?: RewardedSiteWidePlacements;
+}
+
+/**
+ * Module-level guard so the default (runtime-served) mode calls
+ * `initRewardedAds` at most once per page, even when several components each use
+ * {@link useEzoicRewarded}. The first default-mode caller's {@link
+ * UseEzoicRewardedOptions.placements} win.
+ */
+let rewardedInitialized = false;
+
+/**
+ * Test-only: reset the module-level {@link rewardedInitialized} guard so each
+ * test starts from a clean per-page state. Not part of the public package
+ * surface (not re-exported from `index.ts`).
+ */
+export function resetRewardedInitializationForTests(): void {
+  rewardedInitialized = false;
 }
 
 /**
@@ -155,16 +214,27 @@ function settleRewarded<T>(
  * Wrap `window.ezRewardedAds` as a reactive composable. Call from a component
  * `setup()`.
  *
- * See the module doc for the SSR, availability, and "no timer" semantics.
+ * On an Ezoic JS-integrated page it needs no configuration: the default mode
+ * calls `ezstandalone.initRewardedAds(options.placements)` once per page so the
+ * Ezoic runtime serves the rewarded loader. Pass `loaderUrl` only as an escape
+ * hatch for non-integrated pages (see the module doc for the SSR, availability,
+ * and "no timer" semantics).
  *
- * @param options optional {@link UseEzoicRewardedOptions}; pass `loaderUrl` to
- *   have the composable inject the rewarded loader itself.
+ * @param options optional {@link UseEzoicRewardedOptions}; pass `placements` to
+ *   scope the site-wide rewarded formats in default mode, or `loaderUrl` to
+ *   inject an explicit loader instead (escape hatch).
  */
 export function useEzoicRewarded(
   options: UseEzoicRewardedOptions = {},
 ): EzoicRewarded {
   const ready = ref(false);
   const status = ref<RewardedFlowStatus>('idle');
+
+  // Capture the plugin API during setup (inject must run synchronously here).
+  // Default mode reuses its `initRewardedAds` — the same ezstandalone
+  // command-queue plumbing as api.ts — rather than re-implementing it. Absent
+  // when the plugin is not installed (escape-hatch-only, decoupled usage).
+  const ezoic = inject<EzoicApi | null>(ezoicInjectionKey, null);
 
   let disposed = false;
   let onInitiated: (() => void) | undefined;
@@ -278,9 +348,23 @@ export function useEzoicRewarded(
   onMounted(() => {
     if (typeof window === 'undefined') return;
 
-    // Inject the loader when the composable owns it. Idempotent — safe if the
-    // plugin already injected the same loader.
-    if (options.loaderUrl) injectRewardedLoader(options.loaderUrl);
+    if (options.loaderUrl) {
+      // Escape hatch (composable-level): inject the explicit loader script.
+      // Idempotent — safe if the plugin already injected the same loader.
+      injectRewardedLoader(options.loaderUrl);
+    } else if (!isRewardedLoaderInjected()) {
+      // Default (runtime-served) mode: neither this composable nor the plugin
+      // configured a loader URL. Ask the Ezoic runtime to serve the
+      // host-correct rewarded loader by calling initRewardedAds once per page.
+      // Reuses useEzoic()'s initRewardedAds so the ezstandalone command-queue
+      // logic is not duplicated.
+      if (!rewardedInitialized && ezoic) {
+        rewardedInitialized = true;
+        ezoic.initRewardedAds(options.placements);
+      }
+    }
+    // Otherwise the plugin's rewardedLoaderUrl already injected the loader
+    // (plugin-level escape hatch); nothing to do and `placements` is ignored.
 
     // Flip ready once the rewarded queue drains this callback — works whether
     // the loader has already initialized (runs immediately) or not (runs at

@@ -43,9 +43,10 @@ export const EzoicPlugin: Plugin<[EzoicPluginOptions?]> = {
       analyticsScriptUrl: options.analyticsScriptUrl,
     });
 
-    // Rewarded ads use a separate, publisher-specific loader. Inject it only
-    // when the publisher supplies its URL — the host is not fixed, so it is
-    // never hardcoded, and absence keeps this a no-op.
+    // Rewarded ads: escape hatch only. Inject an explicit loader script when the
+    // publisher supplies one for a non-JS-integrated page. On a normal page this
+    // stays unset and `useEzoicRewarded()` lets the Ezoic runtime serve the
+    // loader via initRewardedAds instead.
     if (options.rewardedLoaderUrl) {
       injectRewardedLoader(options.rewardedLoaderUrl);
     }

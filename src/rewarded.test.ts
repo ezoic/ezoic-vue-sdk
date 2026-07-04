@@ -1,12 +1,26 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineComponent, h } from 'vue';
 import { mount } from '@vue/test-utils';
-import { useEzoicRewarded } from './rewarded';
+import {
+  resetRewardedInitializationForTests,
+  useEzoicRewarded,
+} from './rewarded';
 import type { EzoicRewarded, UseEzoicRewardedOptions } from './rewarded';
+import {
+  injectRewardedLoader,
+  resetRewardedLoaderInjectedForTests,
+} from './scripts';
+import { ezoicInjectionKey } from './keys';
 import type { EzRewardedGlobal } from './global';
-import type { RewardedRequestResult, RewardedShowResult } from './types';
+import type {
+  EzoicApi,
+  RewardedRequestResult,
+  RewardedShowResult,
+  RewardedSiteWidePlacements,
+} from './types';
 
 const REWARDED_STUB_SELECTOR = 'script[data-ezoic-vue-sdk="rewarded-cmd-stub"]';
+const LOADER_URL = 'https://example.com/porpoiseant/ezadloadrewarded.js';
 
 /** An immediate-execute cmd queue, simulating a post-init rewarded loader. */
 const immediateCmd = { push: (fn: () => void): void => fn() };
@@ -14,11 +28,15 @@ const immediateCmd = { push: (fn: () => void): void => fn() };
 beforeEach(() => {
   document.head.innerHTML = '';
   delete window.ezRewardedAds;
+  resetRewardedInitializationForTests();
+  resetRewardedLoaderInjectedForTests();
 });
 
 afterEach(() => {
   document.head.innerHTML = '';
   delete window.ezRewardedAds;
+  resetRewardedInitializationForTests();
+  resetRewardedLoaderInjectedForTests();
   vi.restoreAllMocks();
 });
 
@@ -35,6 +53,28 @@ function mountRewarded(options?: UseEzoicRewardedOptions): {
     },
   });
   const wrapper = mount(Comp);
+  return { wrapper, rewarded };
+}
+
+/**
+ * Mount with a provided plugin API (the injected {@link EzoicApi}), so default
+ * (runtime-served) mode can reach `initRewardedAds`. Only `initRewardedAds` is
+ * exercised, so a partial mock suffices.
+ */
+function mountRewardedWithApi(
+  api: Pick<EzoicApi, 'initRewardedAds'>,
+  options?: UseEzoicRewardedOptions,
+): { wrapper: ReturnType<typeof mount>; rewarded: EzoicRewarded } {
+  let rewarded!: EzoicRewarded;
+  const Comp = defineComponent({
+    setup() {
+      rewarded = useEzoicRewarded(options);
+      return () => h('div');
+    },
+  });
+  const wrapper = mount(Comp, {
+    global: { provide: { [ezoicInjectionKey as symbol]: api } },
+  });
   return { wrapper, rewarded };
 }
 
@@ -308,9 +348,115 @@ describe('useEzoicRewarded', () => {
     expect(document.querySelectorAll(REWARDED_STUB_SELECTOR)).toHaveLength(1);
   });
 
-  it('does not inject a loader when loaderUrl is absent', () => {
+  it('does not inject a loader when loaderUrl is absent (no plugin API)', () => {
     window.ezRewardedAds = { cmd: immediateCmd };
     mountRewarded();
     expect(document.querySelector('script[src]')).toBeNull();
+    expect(document.querySelector(REWARDED_STUB_SELECTOR)).toBeNull();
+  });
+
+  describe('default (runtime-served) mode', () => {
+    it('calls initRewardedAds once with no placements and injects no loader', () => {
+      window.ezRewardedAds = { cmd: immediateCmd };
+      const initRewardedAds = vi.fn();
+      mountRewardedWithApi({ initRewardedAds });
+
+      expect(initRewardedAds).toHaveBeenCalledTimes(1);
+      expect(initRewardedAds).toHaveBeenCalledWith(undefined);
+      expect(document.querySelector('script[src]')).toBeNull();
+      expect(document.querySelector(REWARDED_STUB_SELECTOR)).toBeNull();
+    });
+
+    it('forwards the configured placements to initRewardedAds', () => {
+      window.ezRewardedAds = { cmd: immediateCmd };
+      const initRewardedAds = vi.fn();
+      const placements: RewardedSiteWidePlacements = {
+        anchor: false,
+        interstitial: false,
+        video: true,
+        sideRails: false,
+      };
+      mountRewardedWithApi({ initRewardedAds }, { placements });
+
+      expect(initRewardedAds).toHaveBeenCalledTimes(1);
+      expect(initRewardedAds).toHaveBeenCalledWith(placements);
+    });
+
+    it('calls initRewardedAds only once across multiple mounts (first placements win)', () => {
+      window.ezRewardedAds = { cmd: immediateCmd };
+      const initRewardedAds = vi.fn();
+      const first: RewardedSiteWidePlacements = { video: true };
+
+      mountRewardedWithApi({ initRewardedAds }, { placements: first });
+      mountRewardedWithApi(
+        { initRewardedAds },
+        { placements: { video: false } },
+      );
+
+      expect(initRewardedAds).toHaveBeenCalledTimes(1);
+      expect(initRewardedAds).toHaveBeenCalledWith(first);
+    });
+
+    it('does not call initRewardedAds when no plugin API is available', () => {
+      window.ezRewardedAds = { cmd: immediateCmd };
+      // No provided API — decoupled/escape-hatch-only usage. Nothing to init.
+      const { rewarded } = mountRewarded();
+      expect(rewarded.ready.value).toBe(true);
+      expect(document.querySelector('script[src]')).toBeNull();
+    });
+  });
+
+  describe('escape-hatch (explicit loader) mode', () => {
+    it('composable loaderUrl injects the loader and does not call initRewardedAds', () => {
+      const initRewardedAds = vi.fn();
+      mountRewardedWithApi({ initRewardedAds }, { loaderUrl: LOADER_URL });
+
+      expect(
+        document.querySelectorAll(`script[src="${LOADER_URL}"]`),
+      ).toHaveLength(1);
+      expect(document.querySelector(REWARDED_STUB_SELECTOR)).not.toBeNull();
+      expect(initRewardedAds).not.toHaveBeenCalled();
+    });
+
+    it('does not call initRewardedAds when a loader was already injected (plugin rewardedLoaderUrl)', () => {
+      // Simulate the plugin injecting its rewarded loader at install time.
+      injectRewardedLoader(LOADER_URL);
+      const initRewardedAds = vi.fn();
+      mountRewardedWithApi({ initRewardedAds });
+
+      expect(initRewardedAds).not.toHaveBeenCalled();
+      // No second loader script is injected by the default-mode composable.
+      expect(
+        document.querySelectorAll(`script[src="${LOADER_URL}"]`),
+      ).toHaveLength(1);
+    });
+
+    it('does not call initRewardedAds when the host pre-defined window.ezRewardedAds and the plugin injected a loader', () => {
+      // Host HTML defines the rewarded global before the SDK runs. This makes
+      // ensureRewardedCmdStub skip the inline stub node, so the stub-marker
+      // sniff alone would miss the escape hatch (the reviewed gap).
+      window.ezRewardedAds = { cmd: immediateCmd };
+      injectRewardedLoader(LOADER_URL);
+      // Prove the gap condition: no SDK stub-marker node exists in this case.
+      expect(document.querySelector(REWARDED_STUB_SELECTOR)).toBeNull();
+
+      const initRewardedAds = vi.fn();
+      mountRewardedWithApi({ initRewardedAds });
+      expect(initRewardedAds).not.toHaveBeenCalled();
+    });
+
+    it('does not call initRewardedAds when the host HTML hand-included the loader script (no SDK involvement)', () => {
+      // A rewarded loader <script> placed directly in the host HTML, with no
+      // SDK injection (module flag stays false) and no stub-marker node.
+      window.ezRewardedAds = { cmd: immediateCmd };
+      const el = document.createElement('script');
+      el.src = 'https://host.example/porpoiseant/ezadloadrewarded.js';
+      document.head.appendChild(el);
+      expect(document.querySelector(REWARDED_STUB_SELECTOR)).toBeNull();
+
+      const initRewardedAds = vi.fn();
+      mountRewardedWithApi({ initRewardedAds });
+      expect(initRewardedAds).not.toHaveBeenCalled();
+    });
   });
 });
