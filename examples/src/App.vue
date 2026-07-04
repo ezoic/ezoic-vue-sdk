@@ -64,10 +64,10 @@ function addAdUnit(): void {
   const key = nextDynamicKey++;
   dynamicUnits.value.push({
     key,
-    location: 'bottom_of_page',
+    location: 'under_second_paragraph',
     sizes: ['300x250', '336x280'],
   });
-  log(`added dynamic ad unit #${key} (location=bottom_of_page)`);
+  log(`added dynamic ad unit #${key} (location=under_second_paragraph)`);
 }
 
 // --- SPA simulated navigation ----------------------------------------------
@@ -81,16 +81,16 @@ useEzoicPageView(() => pageKey.value);
 const spaAds = computed<AdUnit[]>(() =>
   pageKey.value % 2 === 1
     ? [
-        { key: 1, location: 'top_of_page', sizes: ['728x90', '320x50'] },
-        { key: 2, location: 'mid_content', sizes: ['300x250', '728x90'] },
+        { key: 1, location: 'under_page_title', sizes: ['728x90', '320x50'] },
+        { key: 2, location: 'long_content', sizes: ['300x250', '728x90'] },
       ]
     : [
         {
           key: 1,
-          location: 'under_first_paragraph',
+          location: 'incontent_5',
           sizes: ['300x250', '336x280'],
         },
-        { key: 2, location: 'bottom_of_page', sizes: ['728x90', '320x50'] },
+        { key: 2, location: 'incontent_10', sizes: ['728x90', '320x50'] },
       ],
 );
 

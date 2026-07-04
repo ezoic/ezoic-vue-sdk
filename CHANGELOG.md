@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `injectRewardedLoader()` now seeds `window.__ez = window.__ez || {}` before
+  injecting the publisher's rewarded loader script. The compiled loader reads
+  and writes a global `__ez` namespace at its top level and throws if nothing
+  has created it first; standalone integrations with no other Ezoic
+  orchestration on the host page never created this object, so the loader
+  failed silently before it ever set `ezRewardedAds.ready`.
+- `examples/` demo: the always-mounted display panel and the SPA-navigation
+  panel no longer request the same zero-config locations at the same time.
+  Both panels requesting e.g. `top_of_page`/`mid_content` simultaneously on
+  first load triggered a `refresh()` loop in the underlying ad script that
+  prevented any placement on the page from settling into a filled state. The
+  SPA panel now uses distinct locations (`under_page_title`/`long_content` on
+  odd pages, `incontent_5`/`incontent_10` on even pages) that never collide
+  with the always-mounted panel's `top_of_page`/`under_first_paragraph`/
+  `mid_content`, and the dynamic-content panel uses `under_second_paragraph`
+  instead of the already-claimed `bottom_of_page`.
+
 ## [1.0.0] - 2026-07-03
 
 ### Changed
