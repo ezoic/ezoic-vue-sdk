@@ -291,8 +291,8 @@ onMounted(() => {
           <code>:required="true"</code>.
         </p>
         <div class="ad-slot">
-          <span class="ad-label">id 113</span>
-          <EzoicAd :id="113" :sizes="['300x250', '336x280']" :required="true" />
+          <span class="ad-label">id 910</span>
+          <EzoicAd :id="910" :sizes="['300x250', '336x280']" :required="true" />
         </div>
       </section>
 
