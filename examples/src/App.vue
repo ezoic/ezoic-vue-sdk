@@ -359,16 +359,16 @@ onMounted(() => {
         <p>
           <code>ready</code> stays false unless a rewarded loader URL was
           configured for this build (via the plugin's
-          <code>rewardedLoaderUrl</code> option — publishers point this at
-          their own domain's loader script). Once the loader script has
-          initialized, <code>ready</code> flips true and these buttons queue a
-          real request through <code>window.ezRewardedAds</code>. Whether a
-          request actually resolves with a fill depends on the host page
-          providing the same ad-insertion context the loader script expects at
-          runtime; a host that serves only the SDK's client-side script without
-          that context can leave a request pending indefinitely even once
-          <code>ready</code> is true. Watch the <code>status</code> value below
-          and the event log for the outcome.
+          <code>rewardedLoaderUrl</code> option — publishers point this at their
+          own domain's loader script). Once the loader script has initialized,
+          <code>ready</code> flips true and these buttons queue a real request
+          through <code>window.ezRewardedAds</code>. Whether a request actually
+          resolves with a fill depends on the host page providing the same
+          ad-insertion context the loader script expects at runtime; a host that
+          serves only the SDK's client-side script without that context can
+          leave a request pending indefinitely even once <code>ready</code> is
+          true. Watch the <code>status</code> value below and the event log for
+          the outcome.
         </p>
         <div class="button-row">
           <button type="button" @click="requestAndShowRewarded">
