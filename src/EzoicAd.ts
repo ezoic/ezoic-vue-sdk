@@ -25,8 +25,8 @@
  *
  * @example
  * ```vue
- * <EzoicAd :id="101" />
- * <EzoicAd :id="102" required :sizes="['728x90', '970x250']" />
+ * <EzoicAd :id="910" />
+ * <EzoicAd :id="911" required :sizes="['728x90', '970x250']" />
  * <EzoicAd location="under_first_paragraph" />
  * ```
  */

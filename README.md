@@ -97,8 +97,8 @@ import { EzoicAd } from '@ezoic/vue-sdk';
 </script>
 
 <template>
-  <EzoicAd :id="101" />
-  <EzoicAd :id="102" :sizes="['728x90', '970x250']" />
+  <EzoicAd :id="910" />
+  <EzoicAd :id="911" :sizes="['728x90', '970x250']" />
 </template>
 ```
 
@@ -534,14 +534,14 @@ import {
   CMP_SCRIPT_URLS, // Gatekeeper consent scripts, in load order
   PLACEHOLDER_ID_PREFIX, // 'ezoic-pub-ad-placeholder-'
   isValidPlaceholderId, // integer 1–999 check
-  placeholderDomId, // e.g. placeholderDomId(101)
+  placeholderDomId, // e.g. placeholderDomId(910)
   ID_TO_LOCATION, // reserved id → location-name map
   LOCATION_TO_ID, // location name → id (aliases included)
   isKnownLocation, // is a name a documented location/alias?
   type ShowAdsPlaceholder,
 } from '@ezoic/vue-sdk';
 
-placeholderDomId(101); // 'ezoic-pub-ad-placeholder-101'
+placeholderDomId(910); // 'ezoic-pub-ad-placeholder-910'
 isKnownLocation('under_first_paragraph'); // true
 ```
 
@@ -549,7 +549,7 @@ Placeholder divs follow Ezoic's DOM contract and carry **no styling** on the
 placeholder element itself:
 
 ```html
-<div id="ezoic-pub-ad-placeholder-101"></div>
+<div id="ezoic-pub-ad-placeholder-910"></div>
 ```
 
 ## Migration from raw Ezoic snippets
@@ -575,11 +575,11 @@ a plugin and a component.
 </script>
 <script async src="https://www.ezojs.com/ezoic/sa.min.js"></script>
 
-<div id="ezoic-pub-ad-placeholder-101"></div>
+<div id="ezoic-pub-ad-placeholder-910"></div>
 
 <script>
   ezstandalone.cmd.push(function () {
-    ezstandalone.showAds(101);
+    ezstandalone.showAds(910);
   });
 </script>
 ```
@@ -602,7 +602,7 @@ import { EzoicAd } from '@ezoic/vue-sdk';
 </script>
 
 <template>
-  <EzoicAd :id="101" :sizes="['728x90']" />
+  <EzoicAd :id="910" :sizes="['728x90']" />
 </template>
 ```
 
@@ -640,7 +640,7 @@ wiring and structure. See [`examples/README.md`](./examples/README.md).
 
 1. Package skeleton ✅
 2. Plugin + script management (`app.use(EzoicPlugin, options)`) ✅
-3. Display ads (`<EzoicAd :id="101" />`) ✅
+3. Display ads (`<EzoicAd :id="910" />`) ✅
 4. SPA routing (vue-router integration, Nuxt recipe) ✅
 5. Zero-config placements (`<EzoicAd location="under_first_paragraph" />`) ✅
 6. CMP/consent + typed `config()` ✅

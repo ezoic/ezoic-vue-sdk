@@ -4,7 +4,7 @@ A Vite + Vue 3 app that exercises every feature of `@ezoic/vue-sdk` in one page:
 
 - **Display ads** — zero-config `location` placements (`top_of_page`,
   `under_first_paragraph`, `mid_content`) with explicit `sizes`.
-- **Numeric-id placement** — `<EzoicAd :id="101">` with `sizes` + `required`.
+- **Numeric-id placement** — `<EzoicAd :id="910">` with `sizes` + `required`.
 - **Dynamic content** — a button that mounts more `<EzoicAd>`s, joining the
   SDK's incremental `showAds`/`displayMore` batch.
 - **Simulated SPA navigation** — `useEzoicPageView()` in scan mode, driven by a
