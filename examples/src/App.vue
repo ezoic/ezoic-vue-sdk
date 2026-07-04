@@ -122,6 +122,11 @@ async function allowOutstream(): Promise<void> {
   log(`setOutstreamAllowed resolved → ${allowed}`);
 }
 
+function initAmbientAdFormats(): void {
+  ezoic.initRewardedAds();
+  log('initRewardedAds() — enabling anchor/interstitial/outstream/sideRails');
+}
+
 function enableConsent(): void {
   ezoic.enableConsent();
   log('enableConsent()');
@@ -161,9 +166,6 @@ async function runContentLocker(): Promise<void> {
 
 // --- Lifecycle -------------------------------------------------------------
 onMounted(() => {
-  ezoic.initRewardedAds();
-  log('initRewardedAds()');
-
   const immediate = ezoic.isEzoicUser(100, (isUser) => {
     ezoicUserResult.value = String(isUser);
     log(`isEzoicUser callback → ${isUser}`);
@@ -336,6 +338,9 @@ onMounted(() => {
           </button>
           <button type="button" @click="allowOutstream">
             outstream allow (await)
+          </button>
+          <button type="button" @click="initAmbientAdFormats">
+            initRewardedAds (site-wide ambient formats)
           </button>
           <button type="button" @click="enableConsent">enableConsent</button>
           <button type="button" @click="allowPersonalizedAds">
