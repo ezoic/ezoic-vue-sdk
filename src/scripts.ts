@@ -228,6 +228,16 @@ function ensureRewardedCmdStub(): void {
 }
 
 /**
+ * Ezoic's compiled rewarded-ads loader script expects a global `__ez`
+ * namespace object to exist; this guards standalone-only integrations that
+ * never create it elsewhere. Never overwrites an existing value. Assumes a
+ * browser environment; callers guard SSR.
+ */
+export function ensureEzNamespace(): void {
+  window.__ez = window.__ez || {};
+}
+
+/**
  * Injects the publisher-specific rewarded-ads loader
  * (`/porpoiseant/ezadloadrewarded.js`), preceded by the rewarded cmd-queue
  * stub so `ezRewardedAds.cmd.push(...)` is safe before it initializes.
@@ -241,6 +251,7 @@ function ensureRewardedCmdStub(): void {
  */
 export function injectRewardedLoader(loaderUrl: string): void {
   ensureRewardedCmdStub();
+  ensureEzNamespace();
   injectExternalScript(loaderUrl, { async: true });
 }
 

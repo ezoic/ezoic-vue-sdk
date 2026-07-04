@@ -7,6 +7,7 @@ import {
 import {
   CMD_QUEUE_STUB,
   REWARDED_CMD_QUEUE_STUB,
+  ensureEzNamespace,
   ensureOpenVideoQueue,
   ensureRewardedCmdQueue,
   injectEzoicScripts,
@@ -32,12 +33,14 @@ beforeEach(() => {
   document.head.innerHTML = '';
   delete window.ezstandalone;
   delete window.ezRewardedAds;
+  delete window.__ez;
 });
 
 afterEach(() => {
   document.head.innerHTML = '';
   delete window.ezstandalone;
   delete window.ezRewardedAds;
+  delete window.__ez;
 });
 
 describe('injectEzoicScripts', () => {
@@ -208,6 +211,34 @@ describe('injectRewardedLoader', () => {
     expect(
       document.querySelectorAll(`script[src="${REWARDED_LOADER_URL}"]`),
     ).toHaveLength(1);
+  });
+
+  it('ensures window.__ez exists after injection', () => {
+    injectRewardedLoader(REWARDED_LOADER_URL);
+    expect(window.__ez).toBeDefined();
+    expect(typeof window.__ez).toBe('object');
+  });
+
+  it('preserves an existing host-provided window.__ez', () => {
+    const ez = { adLoadRewarded: vi.fn() };
+    window.__ez = ez;
+    injectRewardedLoader(REWARDED_LOADER_URL);
+    expect(window.__ez).toBe(ez);
+  });
+});
+
+describe('ensureEzNamespace', () => {
+  it('creates window.__ez as an object when missing', () => {
+    ensureEzNamespace();
+    expect(window.__ez).toBeDefined();
+    expect(typeof window.__ez).toBe('object');
+  });
+
+  it('preserves an existing host-provided window.__ez', () => {
+    const ez = { adLoadRewarded: vi.fn() };
+    window.__ez = ez;
+    ensureEzNamespace();
+    expect(window.__ez).toBe(ez);
   });
 });
 

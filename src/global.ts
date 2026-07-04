@@ -281,5 +281,11 @@ declare global {
      * `openVideoPlayers`).
      */
     openVideoPlayers?: OpenVideoPlayersQueue;
+    /**
+     * Namespace object Ezoic's compiled ad-loader scripts read/write on. Its
+     * internal shape is owned by those scripts, not this SDK, so it is typed
+     * loosely here.
+     */
+    __ez?: Record<string, unknown>;
   }
 }

@@ -37,8 +37,10 @@ const consent = useEzoicConsent();
 // build nor the plugin options supply a loader, nothing drains the
 // ezRewardedAds command queue, so `rewarded.ready` stays false and the
 // request/contentLocker promises stay pending (the "→ awaiting…" log lines
-// never get a result line). Publishers set their own loader on their Ezoic
-// domain to exercise the full flow.
+// never get a result line). With a loader configured, `ready` reflects the
+// loader script's own init state — whether a request then resolves with a
+// fill depends on the runtime context that script expects from the host
+// page (see the "Rewarded ads" panel copy below for detail).
 const rewarded = useEzoicRewarded();
 
 // --- Status bar ------------------------------------------------------------
@@ -355,10 +357,18 @@ onMounted(() => {
       <section class="panel">
         <h2>Rewarded ads</h2>
         <p>
-          These controls stay pending, and <code>ready</code> stays false,
-          unless a rewarded loader URL was configured for this build. Publishers
-          configure their own loader via the plugin's
-          <code>rewardedLoaderUrl</code> option.
+          <code>ready</code> stays false unless a rewarded loader URL was
+          configured for this build (via the plugin's
+          <code>rewardedLoaderUrl</code> option — publishers point this at
+          their own domain's loader script). Once the loader script has
+          initialized, <code>ready</code> flips true and these buttons queue a
+          real request through <code>window.ezRewardedAds</code>. Whether a
+          request actually resolves with a fill depends on the host page
+          providing the same ad-insertion context the loader script expects at
+          runtime; a host that serves only the SDK's client-side script without
+          that context can leave a request pending indefinitely even once
+          <code>ready</code> is true. Watch the <code>status</code> value below
+          and the event log for the outcome.
         </p>
         <div class="button-row">
           <button type="button" @click="requestAndShowRewarded">
