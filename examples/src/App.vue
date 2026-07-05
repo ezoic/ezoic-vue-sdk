@@ -40,7 +40,12 @@ const consent = useEzoicConsent();
 // (omitted keys default to enabled). Whether a request then resolves with a
 // fill depends on this page being served from a domain with live Ezoic demand.
 const rewarded = useEzoicRewarded({
-  placements: { anchor: false, interstitial: false, video: true, sideRails: false },
+  placements: {
+    anchor: false,
+    interstitial: false,
+    video: true,
+    sideRails: false,
+  },
 });
 
 // --- Status bar ------------------------------------------------------------
@@ -184,8 +189,8 @@ onMounted(() => {
         page to be served from a domain with live Ezoic demand and enough page
         content for Ezoic's ad-density rules to allow ad positions. Rewarded ads
         need no loader URL — on an Ezoic JS-integrated page the runtime serves
-        the rewarded loader itself. On a host without live demand, the demo still
-        proves wiring and structure, just not fills.
+        the rewarded loader itself. On a host without live demand, the demo
+        still proves wiring and structure, just not fills.
       </p>
       <div class="status-bar">
         <span class="pill" :class="ezoic.ready.value ? 'on' : 'off'">
@@ -366,16 +371,16 @@ onMounted(() => {
           header scripts, <code>useEzoicRewarded()</code> calls
           <code>initRewardedAds(...)</code> with the configured
           <code>placements</code> on mount, and the Ezoic runtime serves the
-          host-correct rewarded loader
-          itself and drains <code>window.ezRewardedAds</code> — so
-          <code>ready</code> flips true without any per-site URL. These buttons
-          then queue a real request. Whether a request resolves with a fill
-          depends on this page being served from a domain with live Ezoic demand;
-          a host without that demand can leave a request pending even once
-          <code>ready</code> is true. Watch the <code>status</code> value below
-          and the event log for the outcome. (The plugin's
-          <code>rewardedLoaderUrl</code> option remains as an escape hatch for
-          pages not JS-integrated through this SDK.)
+          host-correct rewarded loader itself and drains
+          <code>window.ezRewardedAds</code> — so <code>ready</code> flips true
+          without any per-site URL. These buttons then queue a real request.
+          Whether a request resolves with a fill depends on this page being
+          served from a domain with live Ezoic demand; a host without that
+          demand can leave a request pending even once <code>ready</code> is
+          true. Watch the <code>status</code> value below and the event log for
+          the outcome. (The plugin's <code>rewardedLoaderUrl</code> option
+          remains as an escape hatch for pages not JS-integrated through this
+          SDK.)
         </p>
         <div class="button-row">
           <button type="button" @click="requestAndShowRewarded">
@@ -397,8 +402,9 @@ onMounted(() => {
         <h2>Video</h2>
         <p>
           <code>&lt;EzoicVideo&gt;</code> is the ad-bundle video placeholder
-          (requires the plugin, and only requests once page-level ads have loaded
-          — the rewarded init above triggers that). <code>&lt;EzoicVideoEmbed&gt;</code>
+          (requires the plugin, and only requests once page-level ads have
+          loaded — the rewarded init above triggers that).
+          <code>&lt;EzoicVideoEmbed&gt;</code>
           is a self-contained Open Video embed using a real Ezoic-owned Open
           Video id.
         </p>
