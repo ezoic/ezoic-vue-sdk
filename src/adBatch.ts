@@ -55,6 +55,21 @@ export function isAdIdClaimed(id: number): boolean {
 }
 
 /**
+ * Reports whether any `<EzoicAd>` display placeholder is currently mounted on the
+ * page. Both numeric-`id` and semantic-`location` placeholders claim an id (a
+ * location resolves to one, then claims it), so a non-empty claim registry means
+ * at least one display placement is live and will drive the page's initial ad
+ * load.
+ *
+ * The deferred rewarded-init scheduler reads this at its grace deadline to tell a
+ * rewarded-only page — where `initRewardedAds` IS the page's ad bootstrap — apart
+ * from a page whose display ads will start the initial load on their own.
+ */
+export function hasMountedPlacements(): boolean {
+  return claimedIds.size > 0;
+}
+
+/**
  * Adds a placeholder to the pending batch and schedules a microtask flush.
  * Every ad that mounts in the same tick lands in the same batch, so the flush
  * emits exactly one `showAds(...)` carrying all of their ids.

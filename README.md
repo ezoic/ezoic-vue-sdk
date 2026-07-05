@@ -391,11 +391,23 @@ async function unlock() {
 </template>
 ```
 
-On mount, the composable calls `ezstandalone.initRewardedAds(...)` once per page
-(reusing `useEzoic().initRewardedAds`), and the Ezoic runtime serves the
+On mount, the composable schedules `ezstandalone.initRewardedAds(...)` once per
+page (reusing `useEzoic().initRewardedAds`), and the Ezoic runtime serves the
 host-correct rewarded loader in its own response and drains
 `window.ezRewardedAds.cmd`. You do not supply, and should not hardcode, a
 per-site loader URL.
+
+The init call is **deferred**, not fired immediately at mount, so it never
+preempts the page's first ad load. The runtime's `initRewardedAds` internally
+runs `showAds([12])`; issuing that before the page's initial `showAds` has
+started collides with the runtime's initialization and would wedge the whole
+page (no ads render and rewarded never loads). The SDK instead waits until the
+page's initial ad load has started — detected via the `/sa.go` ad request in
+resource timing, a GPT container rendered inside an Ezoic placeholder, or
+`ezstandalone.enabled` when a publisher opts into the public `enable()` — before
+dispatching, or, on a rewarded-only page that mounts no `<EzoicAd>` display
+placements, fires after a short (~4 s) grace window (there `initRewardedAds` is
+itself the page's ad bootstrap). This is automatic; no configuration is needed.
 
 - **Scope the placements (optional):** pass
   `useEzoicRewarded({ placements: { anchor, interstitial, video, sideRails } })`
@@ -445,9 +457,10 @@ await contentLocker('https://example.com/premium');
 
 The ambient rewarded formats (anchor, interstitial, video, side rails) are
 declared via `ezstandalone.initRewardedAds()`. In the default mode above,
-`useEzoicRewarded({ placements })` calls it for you once at mount. It also lives
-directly on `useEzoic()` (it is an `ezstandalone` method) if you need to
-reconfigure the runtime's site-wide rewarded placements later. Each format
+`useEzoicRewarded({ placements })` calls it for you once per page (deferred until
+the initial ad load has started — see above). It also lives directly on
+`useEzoic()` (it is an `ezstandalone` method) if you need to reconfigure the
+runtime's site-wide rewarded placements later. Each format
 defaults to `true`:
 
 ```ts

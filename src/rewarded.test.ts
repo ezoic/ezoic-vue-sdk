@@ -6,6 +6,7 @@ import {
   useEzoicRewarded,
 } from './rewarded';
 import type { EzoicRewarded, UseEzoicRewardedOptions } from './rewarded';
+import { claimAdId, resetAdBatchState } from './adBatch';
 import {
   injectRewardedLoader,
   resetRewardedLoaderInjectedForTests,
@@ -28,15 +29,24 @@ const immediateCmd = { push: (fn: () => void): void => fn() };
 beforeEach(() => {
   document.head.innerHTML = '';
   delete window.ezRewardedAds;
+  delete window.ezstandalone;
   resetRewardedInitializationForTests();
   resetRewardedLoaderInjectedForTests();
+  resetAdBatchState();
 });
 
 afterEach(() => {
   document.head.innerHTML = '';
+  // Remove any Ezoic placeholders / GPT containers a predicate-arm test added.
+  document
+    .querySelectorAll('[id^="ezoic-pub-ad-placeholder-"], [id^="div-gpt-ad"]')
+    .forEach((el) => el.remove());
   delete window.ezRewardedAds;
+  delete window.ezstandalone;
   resetRewardedInitializationForTests();
   resetRewardedLoaderInjectedForTests();
+  resetAdBatchState();
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
@@ -358,6 +368,9 @@ describe('useEzoicRewarded', () => {
   describe('default (runtime-served) mode', () => {
     it('calls initRewardedAds once with no placements and injects no loader', () => {
       window.ezRewardedAds = { cmd: immediateCmd };
+      // Initial load already started (enabled=true) → the scheduler's fast path
+      // dispatches init synchronously on mount.
+      window.ezstandalone = { enabled: true };
       const initRewardedAds = vi.fn();
       mountRewardedWithApi({ initRewardedAds });
 
@@ -369,6 +382,7 @@ describe('useEzoicRewarded', () => {
 
     it('forwards the configured placements to initRewardedAds', () => {
       window.ezRewardedAds = { cmd: immediateCmd };
+      window.ezstandalone = { enabled: true };
       const initRewardedAds = vi.fn();
       const placements: RewardedSiteWidePlacements = {
         anchor: false,
@@ -384,6 +398,7 @@ describe('useEzoicRewarded', () => {
 
     it('calls initRewardedAds only once across multiple mounts (first placements win)', () => {
       window.ezRewardedAds = { cmd: immediateCmd };
+      window.ezstandalone = { enabled: true };
       const initRewardedAds = vi.fn();
       const first: RewardedSiteWidePlacements = { video: true };
 
@@ -403,6 +418,165 @@ describe('useEzoicRewarded', () => {
       const { rewarded } = mountRewarded();
       expect(rewarded.ready.value).toBe(true);
       expect(document.querySelector('script[src]')).toBeNull();
+    });
+  });
+
+  describe('deferred init scheduling', () => {
+    it('does not fire init when no initial-ad-load signal is present', () => {
+      vi.useFakeTimers();
+      window.ezRewardedAds = { cmd: immediateCmd };
+      window.ezstandalone = {}; // enabled undefined — initial load not started
+      // No /sa.go resource-timing entry loads in the test env and no div-gpt-ad
+      // container exists, so none of the three predicate arms is satisfied.
+      const initRewardedAds = vi.fn();
+      mountRewardedWithApi({ initRewardedAds });
+
+      expect(initRewardedAds).not.toHaveBeenCalled();
+      // Polling before any signal appears must not fire it either.
+      vi.advanceTimersByTime(1000);
+      expect(initRewardedAds).not.toHaveBeenCalled();
+    });
+
+    it('fires init once when enabled flips true before the grace deadline, then stops polling', () => {
+      vi.useFakeTimers();
+      window.ezRewardedAds = { cmd: immediateCmd };
+      window.ezstandalone = {};
+      const initRewardedAds = vi.fn();
+      mountRewardedWithApi({ initRewardedAds });
+
+      expect(initRewardedAds).not.toHaveBeenCalled();
+
+      // Runtime enables ads (initial load started); the next poll dispatches once.
+      window.ezstandalone.enabled = true;
+      vi.advanceTimersByTime(250);
+      expect(initRewardedAds).toHaveBeenCalledTimes(1);
+      expect(initRewardedAds).toHaveBeenCalledWith(undefined);
+
+      // Timers are cleaned up: no further dispatch however long we advance.
+      vi.advanceTimersByTime(60_000);
+      expect(initRewardedAds).toHaveBeenCalledTimes(1);
+    });
+
+    it('fires init at the grace deadline when no display placements are mounted', () => {
+      vi.useFakeTimers();
+      window.ezRewardedAds = { cmd: immediateCmd };
+      window.ezstandalone = {}; // never enabled
+      const initRewardedAds = vi.fn();
+      mountRewardedWithApi({ initRewardedAds });
+
+      // Just before the deadline: still deferred.
+      vi.advanceTimersByTime(3999);
+      expect(initRewardedAds).not.toHaveBeenCalled();
+      // At the deadline, with no placements, the rewarded-only page self-boots.
+      vi.advanceTimersByTime(1);
+      expect(initRewardedAds).toHaveBeenCalledTimes(1);
+    });
+
+    it('does NOT fire at the grace deadline while display placements are mounted; fires when enabled flips', () => {
+      vi.useFakeTimers();
+      window.ezRewardedAds = { cmd: immediateCmd };
+      window.ezstandalone = {}; // not enabled
+      // Simulate a mounted <EzoicAd> display placement claiming its id.
+      claimAdId(910);
+      const initRewardedAds = vi.fn();
+      mountRewardedWithApi({ initRewardedAds });
+
+      // Grace window passes but placements exist → do not preempt the load.
+      vi.advanceTimersByTime(4000);
+      expect(initRewardedAds).not.toHaveBeenCalled();
+      // Poll keeps running well past the grace window (never gives up silently).
+      vi.advanceTimersByTime(10_000);
+      expect(initRewardedAds).not.toHaveBeenCalled();
+      // Once the initial load finally starts, init fires exactly once.
+      window.ezstandalone.enabled = true;
+      vi.advanceTimersByTime(250);
+      expect(initRewardedAds).toHaveBeenCalledTimes(1);
+    });
+
+    it('schedules once across multiple default-mode consumers (first placements win, deferred)', () => {
+      vi.useFakeTimers();
+      window.ezRewardedAds = { cmd: immediateCmd };
+      window.ezstandalone = {};
+      const initRewardedAds = vi.fn();
+      const first: RewardedSiteWidePlacements = { video: true };
+      mountRewardedWithApi({ initRewardedAds }, { placements: first });
+      mountRewardedWithApi(
+        { initRewardedAds },
+        { placements: { video: false } },
+      );
+
+      // Deadline with no placements → single dispatch with the first placements.
+      vi.advanceTimersByTime(4000);
+      expect(initRewardedAds).toHaveBeenCalledTimes(1);
+      expect(initRewardedAds).toHaveBeenCalledWith(first);
+    });
+
+    it('fires init when a /sa.go entry is in resource timing (public enabled stays false)', () => {
+      window.ezRewardedAds = { cmd: immediateCmd };
+      // The real-page bug: public enabled never flips. The /sa.go resource entry
+      // is the reliable signal that the initial ad request was issued.
+      window.ezstandalone = {};
+      vi.spyOn(performance, 'getEntriesByType').mockReturnValue([
+        { name: 'https://g.ezoic.net/sa.go?t=1' },
+      ] as unknown as PerformanceEntryList);
+      const initRewardedAds = vi.fn();
+      mountRewardedWithApi({ initRewardedAds });
+
+      // Fast path detects the /sa.go signal and dispatches synchronously.
+      expect(initRewardedAds).toHaveBeenCalledTimes(1);
+      expect(initRewardedAds).toHaveBeenCalledWith(undefined);
+    });
+
+    it('fires init when a GPT container is rendered inside an Ezoic placeholder (public enabled stays false)', () => {
+      window.ezRewardedAds = { cmd: immediateCmd };
+      window.ezstandalone = {}; // public enabled never flips
+      // Ezoic renders its GPT container inside the placeholder once the ad
+      // response is rendering.
+      const placeholder = document.createElement('div');
+      placeholder.id = 'ezoic-pub-ad-placeholder-910';
+      const gpt = document.createElement('div');
+      gpt.id = 'div-gpt-ad-ezoic_com-medrectangle-4-0';
+      placeholder.appendChild(gpt);
+      document.body.appendChild(placeholder);
+      const initRewardedAds = vi.fn();
+      mountRewardedWithApi({ initRewardedAds });
+
+      expect(initRewardedAds).toHaveBeenCalledTimes(1);
+    });
+
+    it('does NOT fire init for a plain publisher GPT container outside any Ezoic placeholder', () => {
+      vi.useFakeTimers();
+      window.ezRewardedAds = { cmd: immediateCmd };
+      window.ezstandalone = {}; // initial load not started
+      // Plain publisher-hardcoded GPT present in the HTML before the Ezoic load —
+      // must not be mistaken for the Ezoic initial load starting.
+      const gpt = document.createElement('div');
+      gpt.id = 'div-gpt-ad-publisher-slot-1';
+      document.body.appendChild(gpt);
+      const initRewardedAds = vi.fn();
+      mountRewardedWithApi({ initRewardedAds });
+
+      expect(initRewardedAds).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(1000);
+      expect(initRewardedAds).not.toHaveBeenCalled();
+    });
+
+    it('keeps a started scheduler running after the initiating component unmounts, then dispatches once', () => {
+      vi.useFakeTimers();
+      window.ezRewardedAds = { cmd: immediateCmd };
+      window.ezstandalone = {}; // initial load not started
+      const initRewardedAds = vi.fn();
+      const { wrapper } = mountRewardedWithApi({ initRewardedAds });
+      expect(initRewardedAds).not.toHaveBeenCalled();
+
+      // The initiating component unmounts before the load starts. The scheduler
+      // is page-global and must NOT be cancelled by unmount.
+      wrapper.unmount();
+
+      // The initial load later starts → the still-running poll dispatches once.
+      window.ezstandalone.enabled = true;
+      vi.advanceTimersByTime(250);
+      expect(initRewardedAds).toHaveBeenCalledTimes(1);
     });
   });
 

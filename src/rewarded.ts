@@ -7,17 +7,34 @@
  * It manages its own `ezRewardedAds` command-queue stub via
  * {@link ensureRewardedCmdQueue}, so it works with the rewarded runtime however
  * it is bootstrapped. It is SSR-safe — no browser global is touched during
- * setup; the default init call, ready flip, and event listeners attach in
- * `onMounted` (client only) and detach in `onUnmounted`.
+ * setup; the default init scheduler, ready flip, and event listeners attach in
+ * `onMounted` (client only); the event listeners detach in `onUnmounted`.
  *
  * **Default (runtime-served) mode.** On an Ezoic JS-integrated page — one this
  * SDK bootstraps via {@link EzoicPlugin} — no loader URL is needed. When neither
  * {@link UseEzoicRewardedOptions.loaderUrl} nor the plugin's `rewardedLoaderUrl`
- * is set, the composable calls `ezstandalone.initRewardedAds(placements)` once
- * per page (through {@link useEzoic}'s `initRewardedAds`, so the ezstandalone
+ * is set, the composable schedules `ezstandalone.initRewardedAds(placements)`
+ * once per page (through {@link useEzoic}'s `initRewardedAds`, so the ezstandalone
  * command-queue plumbing is not duplicated). The Ezoic runtime then serves the
  * host-correct rewarded loader in its own response and drains
  * `window.ezRewardedAds.cmd`.
+ *
+ * The init call is **deferred**, never fired synchronously at mount. The
+ * runtime's `initRewardedAds` internally runs `showAds([12])`; issuing that
+ * before the page's first real `showAds` has established the initial ad load
+ * collides with the runtime's mid-initialization state machine and wedges the
+ * whole page (no `sa.go` request, nothing renders). To avoid that,
+ * {@link scheduleRewardedInit} waits until {@link hasInitialAdLoadStarted}
+ * reports the initial load has started (so the internal `showAds([12])` routes
+ * safely through `displayMore`) — polled every ~250 ms — before dispatching. If
+ * a ~4 s grace window elapses first and the SDK has mounted NO display
+ * placements, the page is rewarded-only, so `initRewardedAds` IS its ad bootstrap
+ * and is fired at the deadline. When placements are mounted but the initial load
+ * has not yet started, the deadline does not fire (that could preempt the pending
+ * initial load); the poll simply continues until the load starts or the page
+ * unloads. The scheduler is page-global and runs to completion once started — it
+ * is not cancelled when the initiating component unmounts, because other rewarded
+ * consumers may still exist.
  *
  * **Escape hatch.** Passing {@link UseEzoicRewardedOptions.loaderUrl} (or setting
  * the plugin's `rewardedLoaderUrl`) instead injects a site-specific
@@ -47,6 +64,7 @@
  */
 import { inject, onMounted, onUnmounted, readonly, ref } from 'vue';
 import type { Ref } from 'vue';
+import { hasMountedPlacements } from './adBatch';
 import {
   ensureRewardedCmdQueue,
   injectRewardedLoader,
@@ -112,12 +130,161 @@ export interface UseEzoicRewardedOptions {
 let rewardedInitialized = false;
 
 /**
- * Test-only: reset the module-level {@link rewardedInitialized} guard so each
- * test starts from a clean per-page state. Not part of the public package
- * surface (not re-exported from `index.ts`).
+ * Interval, in milliseconds, between {@link scheduleRewardedInit} polls of
+ * {@link hasInitialAdLoadStarted}.
+ */
+const REWARDED_INIT_POLL_INTERVAL_MS = 250;
+
+/**
+ * Grace window, in milliseconds, from scheduling before {@link
+ * scheduleRewardedInit} fires `initRewardedAds` on a page that has mounted NO
+ * display placements (a rewarded-only page).
+ */
+const REWARDED_INIT_GRACE_MS = 4000;
+
+/**
+ * Module-level guard so the deferred init is scheduled at most once per page,
+ * even when several components use {@link useEzoicRewarded}. Distinct from
+ * {@link rewardedInitialized}, which guards the single init dispatch: the
+ * scheduler starts once, then dispatches once.
+ */
+let rewardedInitScheduled = false;
+
+/** Handle for the enabled-poll interval; cleared once init is dispatched. */
+let rewardedInitPollTimer: ReturnType<typeof setInterval> | undefined;
+
+/** Handle for the grace-window timeout; cleared once init is dispatched. */
+let rewardedInitGraceTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** Clears any pending {@link scheduleRewardedInit} timers. */
+function clearRewardedInitTimers(): void {
+  if (rewardedInitPollTimer !== undefined) {
+    clearInterval(rewardedInitPollTimer);
+    rewardedInitPollTimer = undefined;
+  }
+  if (rewardedInitGraceTimer !== undefined) {
+    clearTimeout(rewardedInitGraceTimer);
+    rewardedInitGraceTimer = undefined;
+  }
+}
+
+/**
+ * Test-only: reset the module-level once-per-page guards and cancel any pending
+ * scheduler timers so each test starts from a clean per-page state. Not part of
+ * the public package surface (not re-exported from `index.ts`).
  */
 export function resetRewardedInitializationForTests(): void {
   rewardedInitialized = false;
+  rewardedInitScheduled = false;
+  clearRewardedInitTimers();
+}
+
+/**
+ * Regex matching the sol standalone initial ad request path. That request is
+ * issued to `//g.ezoic.net/sa.go` (via XHR) and is visible as a resource-timing
+ * entry; this matches `/sa.go` immediately followed by a query string or the end
+ * of the entry name.
+ */
+const SA_GO_REQUEST_RE = /\/sa\.go(?:\?|$)/;
+
+/**
+ * Reports whether the page's initial ad load has started — the safe point to
+ * dispatch the runtime's `initRewardedAds`, whose internal `showAds([12])` then
+ * routes through `displayMore` instead of colliding with a mid-initialization
+ * state machine.
+ *
+ * `window.ezstandalone.enabled` alone is NOT a reliable signal: the public
+ * `ezstandalone` wrapper object initializes `enabled: false` and only flips it
+ * when a publisher calls the public `enable()`, while the internal standalone
+ * instance the display logic uses tracks its own flag that is never mirrored back
+ * to the wrapper in the normal `showAds` flow. So a fully successful initial load
+ * commonly leaves the public `enabled` at `false`. This predicate is therefore
+ * true when ANY of these hold:
+ *
+ * 1. `window.ezstandalone.enabled === true` — correct when a publisher opts into
+ *    the public `enable()` flow.
+ * 2. A resource-timing entry matches {@link SA_GO_REQUEST_RE} — the direct signal
+ *    that the initial `/sa.go` ad request was issued.
+ * 3. A GPT container is rendered INSIDE an Ezoic placeholder (the
+ *    `[id^="ezoic-pub-ad-placeholder-"] [id^="div-gpt-ad"]` selector) — this
+ *    appears only once the Ezoic ad response is rendering. It is scoped to the
+ *    placeholder on purpose: a bare `div-gpt-ad*` match would also fire on plain
+ *    publisher-hardcoded GPT slots present in the HTML before the load,
+ *    re-introducing the mount-time collision on mixed Ezoic + plain-GPT pages.
+ *
+ * SSR-safe: returns `false` when `window`, `performance`, or `document` is
+ * unavailable.
+ */
+function hasInitialAdLoadStarted(): boolean {
+  if (typeof window === 'undefined') return false;
+  if (window.ezstandalone?.enabled === true) return true;
+  if (typeof performance !== 'undefined' && typeof performance.getEntriesByType === 'function') {
+    for (const entry of performance.getEntriesByType('resource')) {
+      if (SA_GO_REQUEST_RE.test(entry.name)) return true;
+    }
+  }
+  if (
+    typeof document !== 'undefined' &&
+    document.querySelector('[id^="ezoic-pub-ad-placeholder-"] [id^="div-gpt-ad"]') !== null
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Defers the default (runtime-served) `initRewardedAds` call so it never preempts
+ * the page's initial ad load, then dispatches it exactly once.
+ *
+ * See the module doc for why immediate dispatch wedges the page. This scheduler
+ * fires `dispatchInit` when the first of these holds:
+ *
+ * 1. {@link hasInitialAdLoadStarted} reports the initial load has started, so the
+ *    runtime's internal `showAds([12])` routes safely through `displayMore`.
+ *    Polled every {@link REWARDED_INIT_POLL_INTERVAL_MS} ms.
+ * 2. The {@link REWARDED_INIT_GRACE_MS} grace window elapses with NO display
+ *    placement mounted ({@link hasMountedPlacements} is `false`) — a
+ *    rewarded-only page where `initRewardedAds` is the ad bootstrap.
+ *
+ * If the grace window elapses while placements ARE mounted but the initial load
+ * has not started, init is not fired at the deadline (that could collide with the
+ * pending initial load); the poll keeps running until the load starts or the page
+ * unloads — one cheap check per interval, and never giving up avoids a silent
+ * failure. Page-global and once-per-page; runs to completion regardless of
+ * component unmount. SSR-safe: a no-op with no `window`.
+ *
+ * @param dispatchInit dispatches the actual `initRewardedAds` call with the first
+ *   default-mode caller's placements. Invoked at most once.
+ */
+function scheduleRewardedInit(dispatchInit: () => void): void {
+  if (typeof window === 'undefined') return;
+  if (rewardedInitScheduled) return;
+  rewardedInitScheduled = true;
+
+  const fire = (): void => {
+    if (rewardedInitialized) return;
+    rewardedInitialized = true;
+    clearRewardedInitTimers();
+    dispatchInit();
+  };
+
+  // Fast path: the initial load has already started.
+  if (hasInitialAdLoadStarted()) {
+    fire();
+    return;
+  }
+
+  rewardedInitPollTimer = setInterval(() => {
+    if (hasInitialAdLoadStarted()) fire();
+  }, REWARDED_INIT_POLL_INTERVAL_MS);
+
+  rewardedInitGraceTimer = setTimeout(() => {
+    rewardedInitGraceTimer = undefined;
+    if (rewardedInitialized) return;
+    // Rewarded-only page: init is the page's ad bootstrap, so fire it. Otherwise
+    // the ad-load poll above owns the eventual dispatch.
+    if (!hasMountedPlacements()) fire();
+  }, REWARDED_INIT_GRACE_MS);
 }
 
 /**
@@ -215,9 +382,11 @@ function settleRewarded<T>(
  * `setup()`.
  *
  * On an Ezoic JS-integrated page it needs no configuration: the default mode
- * calls `ezstandalone.initRewardedAds(options.placements)` once per page so the
- * Ezoic runtime serves the rewarded loader. Pass `loaderUrl` only as an escape
- * hatch for non-integrated pages (see the module doc for the SSR, availability,
+ * schedules `ezstandalone.initRewardedAds(options.placements)` once per page —
+ * deferred until the initial ad load has started (or a grace window elapses on a
+ * rewarded-only page) — so the Ezoic runtime serves the rewarded loader without
+ * wedging the initial load. Pass `loaderUrl` only as an escape hatch for
+ * non-integrated pages (see the module doc for the deferral, SSR, availability,
  * and "no timer" semantics).
  *
  * @param options optional {@link UseEzoicRewardedOptions}; pass `placements` to
@@ -354,13 +523,16 @@ export function useEzoicRewarded(
       injectRewardedLoader(options.loaderUrl);
     } else if (!isRewardedLoaderInjected()) {
       // Default (runtime-served) mode: neither this composable nor the plugin
-      // configured a loader URL. Ask the Ezoic runtime to serve the
-      // host-correct rewarded loader by calling initRewardedAds once per page.
-      // Reuses useEzoic()'s initRewardedAds so the ezstandalone command-queue
-      // logic is not duplicated.
-      if (!rewardedInitialized && ezoic) {
-        rewardedInitialized = true;
-        ezoic.initRewardedAds(options.placements);
+      // configured a loader URL. Ask the Ezoic runtime to serve the host-correct
+      // rewarded loader by calling initRewardedAds once per page — but DEFERRED
+      // via the page-global scheduler so it never preempts the initial ad load
+      // (see the module doc). Reuses useEzoic()'s initRewardedAds so the
+      // ezstandalone command-queue logic is not duplicated. The first
+      // default-mode caller's placements win (scheduleRewardedInit is a no-op
+      // once already scheduled).
+      if (ezoic) {
+        const { placements } = options;
+        scheduleRewardedInit(() => ezoic.initRewardedAds(placements));
       }
     }
     // Otherwise the plugin's rewardedLoaderUrl already injected the loader
