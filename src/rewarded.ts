@@ -218,14 +218,19 @@ const SA_GO_REQUEST_RE = /\/sa\.go(?:\?|$)/;
 function hasInitialAdLoadStarted(): boolean {
   if (typeof window === 'undefined') return false;
   if (window.ezstandalone?.enabled === true) return true;
-  if (typeof performance !== 'undefined' && typeof performance.getEntriesByType === 'function') {
+  if (
+    typeof performance !== 'undefined' &&
+    typeof performance.getEntriesByType === 'function'
+  ) {
     for (const entry of performance.getEntriesByType('resource')) {
       if (SA_GO_REQUEST_RE.test(entry.name)) return true;
     }
   }
   if (
     typeof document !== 'undefined' &&
-    document.querySelector('[id^="ezoic-pub-ad-placeholder-"] [id^="div-gpt-ad"]') !== null
+    document.querySelector(
+      '[id^="ezoic-pub-ad-placeholder-"] [id^="div-gpt-ad"]',
+    ) !== null
   ) {
     return true;
   }
