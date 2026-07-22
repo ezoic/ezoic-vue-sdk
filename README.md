@@ -16,6 +16,20 @@ Official [Ezoic](https://www.ezoic.com/) ads SDK for Vue 3.
 
 ## Install
 
+The package is not yet published to the npm registry. To try it today, build it
+from source and install the packed tarball:
+
+```sh
+git clone https://github.com/ezoic/ezoic-vue-sdk.git
+cd ezoic-vue-sdk
+npm ci
+npm pack   # runs the build via prepack, produces ezoic-vue-sdk-<version>.tgz
+# then in your app:
+npm install /path/to/ezoic-vue-sdk-<version>.tgz
+```
+
+Once published, installation will be:
+
 ```sh
 npm install @ezoic/vue-sdk
 ```
