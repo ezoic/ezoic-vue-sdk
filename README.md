@@ -2,8 +2,8 @@
 
 Official [Ezoic](https://www.ezoic.com/) ads SDK for Vue 3.
 
-> **Status: 0.x, in active development.** This package is being built out
-> incrementally. It currently ships script management (the `EzoicPlugin`), the
+> **Status: 1.0, feature-complete.** Verified end-to-end against live Ezoic ad
+> demand on a production site. It ships script management (the `EzoicPlugin`), the
 > `useEzoic()` composable, the `<EzoicAd>` display-placeholder component (numeric
 > ids and zero-config semantic `location` names), single-page-app routing
 > (`useEzoicPageView()` plus the plugin's `spa`/`router` options), CMP/consent
