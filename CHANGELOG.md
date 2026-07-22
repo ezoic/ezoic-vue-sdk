@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-07-22
+
+### Added
+
+- Tag-driven npm release workflow (`.github/workflows/publish.yml`) using npm
+  Trusted Publishing (OIDC), adapted from ezoic-react-sdk.
+
 ### Fixed
 
 - `injectRewardedLoader()` now seeds `window.__ez = window.__ez || {}` before
@@ -25,6 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with the always-mounted panel's `top_of_page`/`under_first_paragraph`/
   `mid_content`, and the dynamic-content panel uses `under_second_paragraph`
   instead of the already-claimed `bottom_of_page`.
+- README status banner: replaced the stale "Status: 0.x, in active development"
+  note (which predated the 1.0.0 cut) with the feature-complete 1.0 status.
 
 ## [1.0.0] - 2026-07-03
 
@@ -181,5 +190,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     `MAX_PLACEHOLDER_ID`, `isValidPlaceholderId`, and `placeholderDomId`.
   - Shared types `ShowAdsPlaceholder` and `ShowAdsArg`.
 
-[Unreleased]: https://github.com/ezoic/ezoic-vue-sdk/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/ezoic/ezoic-vue-sdk/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/ezoic/ezoic-vue-sdk/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/ezoic/ezoic-vue-sdk/releases/tag/v1.0.0
