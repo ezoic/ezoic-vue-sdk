@@ -207,7 +207,7 @@ describe('<EzoicAd> — required/sizes contract', () => {
     wrapper.unmount();
   });
 
-  it('warns in dev mode for a location shown without sizes', async () => {
+  it('does not warn about missing sizes for a location placement', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     const wrapper = mountWithPlugin(EzoicAd, { location: 'mid_content' });
@@ -216,7 +216,7 @@ describe('<EzoicAd> — required/sizes contract', () => {
     const sizesWarn = warn.mock.calls.find(
       (call) => typeof call[0] === 'string' && call[0].includes('sizes'),
     );
-    expect(sizesWarn).toBeDefined();
+    expect(sizesWarn).toBeUndefined();
     expect(showAds).toHaveBeenCalledWith({ id: 911, required: true });
 
     wrapper.unmount();
