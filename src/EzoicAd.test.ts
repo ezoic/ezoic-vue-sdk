@@ -108,7 +108,6 @@ describe('<EzoicAd>', () => {
 
   it('warns and skips a duplicate placeholder id', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    // Both carry sizes so the only warning is the duplicate one.
     const Parent = defineComponent({
       setup() {
         return () =>
@@ -207,7 +206,7 @@ describe('<EzoicAd> — required/sizes contract', () => {
     wrapper.unmount();
   });
 
-  it('warns in dev mode for a location shown without sizes', async () => {
+  it('does not warn about missing sizes for a location placement', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     const wrapper = mountWithPlugin(EzoicAd, { location: 'mid_content' });
@@ -216,13 +215,13 @@ describe('<EzoicAd> — required/sizes contract', () => {
     const sizesWarn = warn.mock.calls.find(
       (call) => typeof call[0] === 'string' && call[0].includes('sizes'),
     );
-    expect(sizesWarn).toBeDefined();
+    expect(sizesWarn).toBeUndefined();
     expect(showAds).toHaveBeenCalledWith({ id: 911, required: true });
 
     wrapper.unmount();
   });
 
-  it('does not warn about missing sizes for a numeric id (dashboard sizing)', async () => {
+  it('does not warn about missing sizes for a numeric id', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     const wrapper = mountWithPlugin(EzoicAd, { id: 101 });
@@ -235,23 +234,6 @@ describe('<EzoicAd> — required/sizes contract', () => {
     expect(showAds).toHaveBeenCalledWith(101);
 
     wrapper.unmount();
-  });
-
-  it('suppresses the missing-sizes warning in production', async () => {
-    vi.stubEnv('NODE_ENV', 'production');
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
-    const wrapper = mountWithPlugin(EzoicAd, { location: 'mid_content' });
-    await flushPromises();
-
-    const sizesWarn = warn.mock.calls.find(
-      (call) => typeof call[0] === 'string' && call[0].includes('sizes'),
-    );
-    expect(sizesWarn).toBeUndefined();
-    expect(showAds).toHaveBeenCalledWith({ id: 911, required: true });
-
-    wrapper.unmount();
-    vi.unstubAllEnvs();
   });
 
   it('a duplicate numeric id warns about the duplicate but not about sizes', async () => {
@@ -268,7 +250,7 @@ describe('<EzoicAd> — required/sizes contract', () => {
     await flushPromises();
 
     const messages = warn.mock.calls.map((call) => String(call[0]));
-    // Numeric ids are dashboard-configured, so no missing-sizes warning fires.
+    // No missing-sizes warning exists for any placement.
     expect(messages.filter((m) => m.includes('sizes'))).toHaveLength(0);
     // The loser still emits the duplicate warning.
     expect(messages.filter((m) => m.includes('duplicate'))).toHaveLength(1);
@@ -355,7 +337,6 @@ describe('<EzoicAd location> — static fallback (bundle not loaded)', () => {
   it('warns on an unknown location but still resolves a generic slot', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    // Pass sizes so the ONLY warning is the unknown-location one.
     const wrapper = mountWithPlugin(EzoicAd, {
       location: 'footer_banner',
       sizes: ['300x250'],

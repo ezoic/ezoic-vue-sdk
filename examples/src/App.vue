@@ -268,9 +268,11 @@ onMounted(() => {
       <section class="panel">
         <h2>Display ads — zero-config locations</h2>
         <p>
-          Each <code>&lt;EzoicAd location="…"&gt;</code> passes explicit
-          <code>sizes</code>; <code>required</code> defaults to
-          <code>true</code> for locations.
+          Zero-config <code>&lt;EzoicAd location="…"&gt;</code> placements;
+          <code>required</code> defaults to <code>true</code> for locations.
+          This demo passes <code>sizes</code> to restrict eligible ad sizes to
+          what fits each slot — omit <code>sizes</code> to let Ezoic optimize
+          automatically.
         </p>
         <div class="ad-slot">
           <span class="ad-label">top_of_page</span>
