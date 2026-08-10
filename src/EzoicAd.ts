@@ -39,7 +39,6 @@ import {
   type PropType,
 } from 'vue';
 import { claimAdId, isAdIdClaimed, queueShowAd, releaseAdId } from './adBatch';
-import { isDevMode } from './env';
 import { isKnownLocation, resolveLocationIdFromMap } from './locations';
 import { isValidPlaceholderId, resolvedPlaceholderDomId } from './placeholder';
 import type { ShowAdsArg, ShowAdsPlaceholder } from './types';
@@ -87,8 +86,11 @@ export const EzoicAd = defineComponent({
      */
     required: { type: Boolean, default: undefined },
     /**
-     * Explicit ad sizes as `"<width>x<height>"` strings (e.g. `"728x90"`).
-     * ezstandalone skips any entry that does not match that shape.
+     * Optional ad sizes as `"<width>x<height>"` strings (e.g. `"728x90"`).
+     * When omitted, Ezoic selects and optimizes ad sizes automatically —
+     * including for `location` placements. When provided, it restricts which
+     * sizes may serve, useful when the surrounding layout only fits certain
+     * sizes. ezstandalone skips any entry that does not match that shape.
      */
     sizes: { type: Array as PropType<string[]>, default: undefined },
   },
@@ -147,24 +149,6 @@ export const EzoicAd = defineComponent({
       owns = true;
       ownedId = id;
       resolvedId.value = id;
-      // A zero-config `location` placeholder resolves into the reserved 900-range,
-      // which has no dashboard-configured sizing, so the caller must pass `sizes`
-      // or the placement yields no size-driven ad. A numeric `id` is a
-      // dashboard placeholder whose sizing can be set in the Ezoic UI, so `sizes`
-      // is optional there and omitting it is not warned about.
-      if (
-        isDevMode() &&
-        hasLocation &&
-        !(Array.isArray(props.sizes) && props.sizes.length > 0)
-      ) {
-        console.warn(
-          `[ezoic-vue-sdk] <EzoicAd> location "${props.location}" (placeholder ` +
-            `id ${id}) was shown without \`sizes\`. Zero-config location ` +
-            'placeholders have no dashboard sizing, so a placement with no sizes ' +
-            'yields no size-driven ad. Pass explicit sizes, e.g. ' +
-            `:sizes="['728x90', '320x50']".`,
-        );
-      }
       // Read `required` live at claim time (a location claims after the async
       // id resolve, so a snapshot could go stale if the parent flips the prop).
       // `required` defaults to `true` for a location (zero-config ids are only

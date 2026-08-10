@@ -102,10 +102,10 @@ import { EzoicAd } from '@ezoic/vue-sdk';
 </template>
 ```
 
-- **`sizes` is optional for numeric ids.** A numeric `id` is a dashboard
-  placeholder whose sizing can be set in your Ezoic dashboard. Pass `sizes`
-  only when you want to force specific sizes; the SDK does not warn when a
-  numeric `id` is shown without `sizes`.
+- **`sizes` is optional.** When omitted, Ezoic selects and optimizes ad sizes
+  automatically — including for `location` placements. When provided, it
+  restricts which sizes may serve, useful when the surrounding layout only fits
+  certain sizes.
 - **Batched requests.** Every `<EzoicAd>` that mounts in the same tick is
   coalesced into a single `showAds(...)` call carrying all their ids (the ad
   bundle adds its own debounce on top).
@@ -145,10 +145,10 @@ import { EzoicAd } from '@ezoic/vue-sdk';
   zero-config server-side (the Ezoic ad server only treats a 900-range id as zero-config when it
   is required). Opt out with `:required="false"`. Numeric `id` placements keep
   `required` defaulting to `false`.
-- **`location` placements must pass `sizes`.** Unlike a numeric dashboard `id`,
-  a zero-config 900-range placeholder has no dashboard sizing, so the `sizes`
-  you pass are what create the ad's placements; the SDK warns loudly in dev
-  when `sizes` is omitted.
+- **`sizes` is optional for `location` placements too.** When omitted, Ezoic
+  selects and optimizes ad sizes automatically. When provided, `sizes`
+  restricts which sizes may serve — useful when the surrounding layout only
+  fits certain sizes.
 - **How it resolves.** When the ad bundle has loaded, the SDK uses its
   `GetGeneratedIdAsync(location)` helper (which finds a free slot and can
   allocate a fresh id for a repeated location). Before the bundle is available,
@@ -166,9 +166,8 @@ import { EzoicAd } from '@ezoic/vue-sdk';
 - **Client-only.** Because the name resolves on the client, a `location`
   placeholder renders nothing during SSR and appears after mount. Use a numeric
   `id` if you need the div present in the server-rendered HTML.
-- **`sizes`** uses the same `"<width>x<height>"` shape as a numeric `id`, but
-  here it is required rather than optional (there is no dashboard sizing to fall
-  back on). `required` differs only in its default (see above).
+- **`sizes`** uses the same optional `"<width>x<height>"` shape as a numeric
+  `id`. `required` differs only in its default (see above).
 
 `required`/`sizes`, batching, teardown on unmount, and the bare-div rule all
 apply to `location` placeholders just like numeric ones.
