@@ -64,7 +64,7 @@
     "@eslint/js": "^10.0.1",
     "@vitejs/plugin-vue": "^6.0.8",
     "@vitest/coverage-v8": "^4.1.11",
-    "@vue/test-utils": "^2.4.11",
+    "@vue/test-utils": "^2.5.0",
     "eslint": "^10.9.1",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.11.0",
@@ -77,8 +77,5 @@
     "vitest": "^4.1.11",
     "vue": "^3.5.42",
     "vue-tsc": "^3.3.11"
-  },
-  "overrides": {
-    "js-beautify": "^2.0.3"
   }
 }
