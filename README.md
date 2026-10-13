@@ -75,13 +75,13 @@ ezoic.push(() => {
 // Typed passthroughs to the ezstandalone display methods. Each is queued on
 // the command queue, so it is safe to call before the bundle loads.
 ezoic.showAds(
-  { id: 101, required: true, sizes: ['728x90', '320x50'] },
-  { id: 102, required: true, sizes: ['300x250'] },
+  { id: 909, required: true, sizes: ['728x90', '320x50'] },
+  { id: 910, required: true, sizes: ['300x250'] },
 );
-ezoic.displayMore(201); // request more placeholders (infinite scroll)
-ezoic.destroyPlaceholders(101, 102);
+ezoic.displayMore({ id: 911, required: true, sizes: ['300x250'] }); // request more placeholders (infinite scroll)
+ezoic.destroyPlaceholders(909, 910);
 ezoic.destroyAll();
-ezoic.refreshAds(101);
+ezoic.refreshAds(909);
 ezoic.isEzoicUser(); // A/B group check (false until the bundle loads)
 ```
 
@@ -97,8 +97,8 @@ import { EzoicAd } from '@ezoic/vue-sdk';
 </script>
 
 <template>
-  <EzoicAd :id="910" />
-  <EzoicAd :id="911" :sizes="['728x90', '970x250']" />
+  <EzoicAd :id="910" :sizes="['300x250']" :required="true" />
+  <EzoicAd :id="911" :sizes="['728x90', '970x250']" :required="true" />
 </template>
 ```
 
@@ -133,9 +133,17 @@ import { EzoicAd } from '@ezoic/vue-sdk';
 </script>
 
 <template>
-  <EzoicAd location="top_of_page" :sizes="['728x90', '320x50']" />
-  <EzoicAd location="under_first_paragraph" :sizes="['300x250']" />
-  <EzoicAd location="mid_content" :sizes="['300x250']" />
+  <EzoicAd
+    location="top_of_page"
+    :sizes="['728x90', '320x50']"
+    :required="true"
+  />
+  <EzoicAd
+    location="under_first_paragraph"
+    :sizes="['300x250']"
+    :required="true"
+  />
+  <EzoicAd location="mid_content" :sizes="['300x250']" :required="true" />
 </template>
 ```
 
@@ -217,16 +225,45 @@ const route = useRoute();
 useEzoicPageView(() => route.fullPath);
 ```
 
-If you render the placeholder `<div>`s yourself instead of using `<EzoicAd>`,
-pass the ids present on each route (**managed mode**). On every change the
-previous route's ids are destroyed and the current route's ids are requested:
+If you render the placeholder `<div>`s yourself, pass complete descriptors on
+both the first load and every route change. This setup helper uses distinct
+900-range positions and supplies `sizes` and `required: true` every time:
 
 ```ts
-import { computed } from 'vue';
+import { computed, onBeforeUnmount, onMounted, watch, type Ref } from 'vue';
+import { useEzoic, type ShowAdsPlaceholder } from '@ezoic/vue-sdk';
 
-const ids = computed(() => (route.name === 'article' ? [101, 102] : [201]));
-useEzoicPageView(() => route.fullPath, { ids });
+// Call in setup() with a ref containing the current route path.
+function setupPageAds(routePath: Ref<string>) {
+  const ezoic = useEzoic();
+  const placements = computed<ShowAdsPlaceholder[]>(() =>
+    (routePath.value === '/article' ? [909, 910] : [911]).map((id) => ({
+      id,
+      required: true,
+      sizes: ['300x250'],
+    })),
+  );
+  let activeIds: number[] = [];
+  const showPage = () => {
+    if (activeIds.length > 0) ezoic.destroyPlaceholders(...activeIds);
+    ezoic.showAds(...placements.value);
+    activeIds = placements.value.map(({ id }) => id);
+  };
+  ezoic.setIsSinglePageApplication(true);
+  onMounted(showPage);
+  watch(routePath, showPage, { flush: 'post' });
+  onBeforeUnmount(() => {
+    if (activeIds.length > 0) ezoic.destroyPlaceholders(...activeIds);
+  });
+}
 ```
+
+Render bare placeholder divs for the current descriptors before these calls.
+Use this helper instead of the plugin's `router` option or `useEzoicPageView()`
+so only one path requests each page's ads. The advanced `useEzoicPageView(...,
+{ ids })` managed mode accepts only `number[]`; it cannot supply sizes or
+`required`. Use it only for dashboard-configured placements with their own
+sizing, and request the initial page separately after mount.
 
 `useEzoicPageView()` declares SPA mode itself, so you do not also need the
 plugin's `spa`/`router` options when you use it. It is SSR-safe (it touches no
@@ -271,10 +308,10 @@ do it imperatively, use `displayMore` (or `showAds` with the new ids) from
 
 ```ts
 const ezoic = useEzoic();
-// After appending divs for placeholders 210 and 211:
+// After appending divs for placeholders 912 and 913:
 ezoic.displayMore(
-  { id: 210, required: true, sizes: ['300x250'] },
-  { id: 211, required: true, sizes: ['300x250'] },
+  { id: 912, required: true, sizes: ['300x250'] },
+  { id: 913, required: true, sizes: ['300x250'] },
 );
 ```
 
@@ -602,7 +639,7 @@ a plugin and a component.
 
 <script>
   ezstandalone.cmd.push(function () {
-    ezstandalone.showAds(910);
+    ezstandalone.showAds({ id: 910, required: true, sizes: ['728x90'] });
   });
 </script>
 ```
@@ -625,7 +662,7 @@ import { EzoicAd } from '@ezoic/vue-sdk';
 </script>
 
 <template>
-  <EzoicAd :id="910" :sizes="['728x90']" />
+  <EzoicAd :id="910" :sizes="['728x90']" :required="true" />
 </template>
 ```
 
@@ -663,9 +700,9 @@ wiring and structure. See [`examples/README.md`](./examples/README.md).
 
 1. Package skeleton ✅
 2. Plugin + script management (`app.use(EzoicPlugin, options)`) ✅
-3. Display ads (`<EzoicAd :id="910" />`) ✅
+3. Display ads (`<EzoicAd :id="910" :sizes="['300x250']" :required="true" />`) ✅
 4. SPA routing (vue-router integration, Nuxt recipe) ✅
-5. Zero-config placements (`<EzoicAd location="under_first_paragraph" />`) ✅
+5. Zero-config placements (`<EzoicAd location="under_first_paragraph" :sizes="['300x250']" :required="true" />`) ✅
 6. CMP/consent + typed `config()` ✅
 7. Rewarded ads (`useEzoicRewarded()`) ✅
 8. Video (`<EzoicVideo>`, `<EzoicVideoEmbed>`) ✅

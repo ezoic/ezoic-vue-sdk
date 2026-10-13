@@ -4,7 +4,7 @@ A Vite + Vue 3 app that exercises every feature of `@ezoic/vue-sdk` in one page:
 
 - **Display ads** — zero-config `location` placements (`top_of_page`,
   `under_first_paragraph`, `mid_content`) with explicit `sizes`.
-- **Numeric-id placement** — `<EzoicAd :id="910">` with `sizes` + `required`.
+- **Numeric-id placement** — `<EzoicAd :id="910" :sizes="['300x250']" :required="true" />`.
 - **Dynamic content** — a button that mounts more `<EzoicAd>`s, joining the
   SDK's incremental `showAds`/`displayMore` batch.
 - **Simulated SPA navigation** — `useEzoicPageView()` in scan mode, driven by a
@@ -44,9 +44,12 @@ script/display/SPA logic changes so the demo stays in sync.
 
 ## Note on localhost
 
-On localhost, ads will **not** fill — there is no Ezoic demand for localhost,
-and this demo ships no rewarded loader or real Open Video id. With no loader,
-nothing drains the rewarded command queue, so `rewarded.ready` stays false and
-the request/content-locker promises stay pending. That is expected: the demo
-proves wiring and structure, not fills. Publishers deploy on their
-Ezoic-enabled domain and set `rewardedLoaderUrl` plus a real Open Video id.
+On localhost, ads will **not** fill — there is no Ezoic demand for localhost.
+The demo proves wiring and structure, not fills. It uses the real Open Video id
+`zn0TPhaPiju`; publishers should replace it with their own video id.
+
+On an Ezoic-enabled domain, the demo's `EzoicPlugin` loads the standalone ad
+bundle and `useEzoicRewarded()` schedules rewarded initialization. The Ezoic
+runtime serves the rewarded loader; no `rewardedLoaderUrl` is needed for this
+setup. That option is an escape hatch only for pages that do not load the
+standalone ad bundle through the SDK (see the root README).

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- README display-ad examples now use distinct 900-range positions with explicit
+  sizes and required fill behavior. The raw-div SPA recipe supplies full
+  descriptors on initial mount and every route change; the managed-mode docs
+  clarify that numeric ids alone cannot configure zero-config placements.
+- The examples guide now documents its real Open Video id and the default
+  rewarded setup, which does not require a publisher-supplied loader URL.
+
 ## [1.0.1] - 2026-07-22
 
 ### Added

@@ -40,12 +40,11 @@
  * useEzoicPageView(() => route.fullPath);
  * ```
  *
- * @example Managed mode with explicit per-route ids:
- * ```ts
- * const route = useRoute();
- * const ids = computed(() => (route.name === 'article' ? [101, 102] : [201]));
- * useEzoicPageView(() => route.fullPath, { ids });
- * ```
+ * Managed mode accepts numeric ids only, so it cannot supply `sizes` or
+ * `required`. Use it for dashboard-configured placements with their own sizing
+ * and request the initial page separately after mount. For zero-config
+ * placements, use `<EzoicAd>` or explicit sized `showAds` descriptors on every
+ * route (see the README).
  */
 import { toValue, watch, type MaybeRefOrGetter, type WatchSource } from 'vue';
 import { useEzoic } from './useEzoic';
