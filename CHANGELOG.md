@@ -16,6 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The examples guide now documents its real Open Video id and the default
   rewarded setup, which does not require a publisher-supplied loader URL.
 
+### Security
+
+- Development lockfile: bumped the transitive `undici` dependency (via
+  `jsdom`) from 7.30.0 to 7.30.1 to address GHSA-4qv8-2p9j-2685,
+  GHSA-f72v-6w45-q472 and GHSA-xjj6-f33q-929c. Test tooling only; the
+  published package and its runtime behavior are unchanged.
+
 ## [1.0.1] - 2026-07-22
 
 ### Added
