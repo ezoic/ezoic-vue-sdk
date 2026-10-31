@@ -10,14 +10,16 @@
  * batched into a single page-wide `showAds(...)` call (see the adBatch module);
  * on unmount the placeholder is destroyed.
  *
- * Give it either a numeric `id` (generated in your Ezoic dashboard) or a
- * semantic `location` name for a zero-config placement — exactly one, never
- * both. A `location` is resolved to a placeholder id at runtime: the ad bundle's
- * `GetGeneratedIdAsync` is used when it has loaded, otherwise the SDK's static
- * location map resolves it so the placeholder still appears on first paint.
- * Because a location resolves on the client, a `location` placeholder renders
- * nothing during SSR and appears after mount; a numeric `id` renders its div
- * during SSR as well.
+ * Give it a numeric `id` (generated in your Ezoic dashboard), a semantic
+ * `location` name for a zero-config placement, or neither with nonempty
+ * `sizes` for a sizes-only placement. Never pass both `id` and `location`.
+ * A `location` (or a sizes-only placement, which has no location) is resolved
+ * to a placeholder id at runtime: the ad bundle's `GetGeneratedIdAsync` is used
+ * when it has loaded, otherwise the SDK's static location map resolves it so
+ * the placeholder still appears on first paint. A sizes-only placement lands on
+ * the next free generic in-content slot (915 and up). Because these resolve on
+ * the client, they render nothing during SSR and appear after mount; a numeric
+ * `id` renders its div during SSR as well.
  *
  * Written as a render-function component (no `.vue` single-file component) so
  * the SDK needs no template compiler or `eslint-plugin-vue` in its toolchain;
@@ -25,9 +27,9 @@
  *
  * @example
  * ```vue
- * <EzoicAd :id="910" />
- * <EzoicAd :id="911" required :sizes="['728x90', '970x250']" />
- * <EzoicAd location="under_first_paragraph" />
+ * <EzoicAd :id="910" required :sizes="['300x250', '336x280']" />
+ * <EzoicAd location="under_first_paragraph" required :sizes="['300x250']" />
+ * <EzoicAd required :sizes="['300x250']" />
  * ```
  */
 import {
@@ -81,14 +83,16 @@ export const EzoicAd = defineComponent({
     location: { type: String, default: undefined },
     /**
      * Mark the placeholder as required (`saContext.rid`). Defaults to `true`
-     * for `location` placements — the Ezoic ad server only treats a zero-config (900-range) id
-     * as zero-config when it is required — and to `false` for numeric `id`
-     * placements. Opt a location out with `:required="false"`.
+     * for `location` and sizes-only placements — the Ezoic ad server only
+     * treats a zero-config (900-range) id as zero-config when it is required —
+     * and to `false` for numeric `id` placements. Opt out with
+     * `:required="false"`.
      */
     required: { type: Boolean, default: undefined },
     /**
      * Explicit ad sizes as `"<width>x<height>"` strings (e.g. `"728x90"`).
-     * ezstandalone skips any entry that does not match that shape.
+     * ezstandalone skips any entry that does not match that shape. Nonempty
+     * `sizes` with no `id` or `location` makes a sizes-only placement.
      */
     sizes: { type: Array as PropType<string[]>, default: undefined },
   },
@@ -100,11 +104,22 @@ export const EzoicAd = defineComponent({
     const hasId = props.id != null;
     const hasLocation =
       typeof props.location === 'string' && props.location.length > 0;
+    const hasSizes = Array.isArray(props.sizes) && props.sizes.length > 0;
+    // No id and no location: a placement driven only by its sizes. It resolves
+    // like a location with an empty name, which picks a generic in-content slot.
+    const sizesOnly = !hasId && !hasLocation && hasSizes;
 
-    if (hasId === hasLocation) {
+    if (hasId && hasLocation) {
       console.warn(
-        '[ezoic-vue-sdk] <EzoicAd> requires exactly one of `id` or `location`. ' +
-          'Provide a numeric `id` from your dashboard or a semantic `location` name.',
+        '[ezoic-vue-sdk] <EzoicAd> accepts only one of `id` or `location`, not both.',
+      );
+      return () => null;
+    }
+
+    if (!hasId && !hasLocation && !sizesOnly) {
+      console.warn(
+        '[ezoic-vue-sdk] <EzoicAd> needs a numeric `id`, a semantic `location`, ' +
+          'or nonempty `sizes` for a sizes-only placement.',
       );
       return () => null;
     }
@@ -125,8 +140,8 @@ export const EzoicAd = defineComponent({
     }
 
     // The placeholder id once known. A numeric id is known synchronously (so its
-    // div renders during SSR and on first paint); a location resolves after
-    // mount on the client.
+    // div renders during SSR and on first paint); a location or sizes-only
+    // placement resolves after mount on the client.
     const resolvedId = ref<number | null>(hasId ? (props.id as number) : null);
     // Whether this instance owns its id (won the duplicate check). Only the
     // owner registers a showAds and destroys the placeholder on unmount.
@@ -167,11 +182,10 @@ export const EzoicAd = defineComponent({
       }
       // Read `required` live at claim time (a location claims after the async
       // id resolve, so a snapshot could go stale if the parent flips the prop).
-      // `required` defaults to `true` for a location (zero-config ids are only
-      // treated as zero-config server-side when required) and `false` for a
-      // numeric id; `??` only falls through on null/undefined, so an explicit
-      // `:required="false"` stays `false`.
-      const effectiveRequired = props.required ?? hasLocation;
+      // `required` defaults to `true` without a numeric id (zero-config ids
+      // need it server-side) and `false` with one. `??` keeps an explicit
+      // `:required="false"`.
+      const effectiveRequired = props.required ?? !hasId;
       queueShowAd(toShowAdsArg(id, effectiveRequired, props.sizes), ez.push);
       return true;
     }
@@ -205,7 +219,9 @@ export const EzoicAd = defineComponent({
         return;
       }
 
-      const location = props.location as string;
+      // A sizes-only placement has no name; the empty name resolves to the
+      // next free generic in-content slot in both the bundle and the map.
+      const location = sizesOnly ? '' : (props.location as string);
       const ezg = window.ezstandalone;
       if (!ezg || typeof ezg.GetGeneratedIdAsync !== 'function') {
         activateLocation(

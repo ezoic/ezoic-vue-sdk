@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Sizes-only placements: `<EzoicAd :sizes="['300x250']" />` with no `id` or
+  `location` now resolves to the next free generic in-content slot (915 and
+  up), defaults `required` to `true` (explicit `:required="false"` is kept),
+  shares the batched `showAds(...)` call, and destroys its id on unmount.
+  Passing both `id` and `location`, or neither with empty `sizes`, still logs a
+  warning and renders nothing.
+
+### Changed
+
+- The examples demo's dynamic placements are now sizes-only, and its
+  simulated SPA routes use `longer_content`/`longest_content` so generic
+  in-content slots stay free.
+
 ### Fixed
 
 - README display-ad examples now use distinct 900-range positions with explicit

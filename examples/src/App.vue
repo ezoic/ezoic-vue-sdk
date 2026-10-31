@@ -62,17 +62,20 @@ interface AdUnit {
   sizes: string[];
 }
 
-let nextDynamicKey = 1;
-const dynamicUnits = ref<AdUnit[]>([]);
+interface SizesOnlyUnit {
+  key: number;
+  sizes: string[];
+}
 
+let nextDynamicKey = 1;
+const dynamicUnits = ref<SizesOnlyUnit[]>([]);
+
+// Sizes-only units: no id or location, so each takes the next free generic
+// in-content slot.
 function addAdUnit(): void {
   const key = nextDynamicKey++;
-  dynamicUnits.value.push({
-    key,
-    location: 'under_second_paragraph',
-    sizes: ['300x250', '336x280'],
-  });
-  log(`added dynamic ad unit #${key} (location=under_second_paragraph)`);
+  dynamicUnits.value.push({ key, sizes: ['300x250', '336x280'] });
+  log(`added sizes-only dynamic ad unit #${key}`);
 }
 
 // --- SPA simulated navigation ----------------------------------------------
@@ -90,12 +93,14 @@ const spaAds = computed<AdUnit[]>(() =>
         { key: 2, location: 'long_content', sizes: ['300x250', '728x90'] },
       ]
     : [
+        // Named slots, so generic in-content slots stay free for sizes-only
+        // dynamic units.
         {
           key: 1,
-          location: 'incontent_5',
+          location: 'longer_content',
           sizes: ['300x250', '336x280'],
         },
-        { key: 2, location: 'incontent_10', sizes: ['728x90', '320x50'] },
+        { key: 2, location: 'longest_content', sizes: ['728x90', '320x50'] },
       ],
 );
 
@@ -228,12 +233,13 @@ onMounted(() => {
         </p>
         <p>
           Components handle placement. <code>&lt;EzoicAd&gt;</code> mounts a
-          placeholder either by a semantic location name (zero-config locations
-          such as <code>top_of_page</code> or <code>mid_content</code>, resolved
-          by Ezoic's own layout logic) or by a specific numeric placement id,
-          and unmounts cleanly when removed from the DOM — which matters for
-          dynamic and SPA-style content where ad units are added, removed, or
-          replaced as the page changes. <code>&lt;EzoicVideo&gt;</code> and
+          placeholder by a semantic location name (zero-config locations such as
+          <code>top_of_page</code> or <code>mid_content</code>, resolved by
+          Ezoic's own layout logic), by a specific numeric placement id, or by
+          sizes alone (the next free generic in-content slot), and unmounts
+          cleanly when removed from the DOM — which matters for dynamic and
+          SPA-style content where ad units are added, removed, or replaced as
+          the page changes. <code>&lt;EzoicVideo&gt;</code> and
           <code>&lt;EzoicVideoEmbed&gt;</code> cover the ad-bundle video
           placeholder and a self-contained Open Video embed, respectively.
         </p>
@@ -254,14 +260,14 @@ onMounted(() => {
         <p>
           The sections below walk through the SDK's surface area one feature at
           a time: zero-config display ads placed by semantic location, a
-          placement addressed by numeric id with required fill behavior, dynamic
-          ad units added incrementally after the initial load, simulated SPA
-          navigation that swaps placeholders on a virtual page change, consent
-          and runtime configuration controls, rewarded ads gated on a configured
-          loader, and video embeds via both the ad-bundle player and the
-          standalone Open Video embed. Each panel logs its actions to the event
-          log at the bottom of the page so the underlying composable and
-          component behavior is visible as it happens.
+          placement addressed by numeric id with required fill behavior,
+          sizes-only dynamic ad units added incrementally after the initial
+          load, simulated SPA navigation that swaps placeholders on a virtual
+          page change, consent and runtime configuration controls, rewarded ads
+          gated on a configured loader, and video embeds via both the ad-bundle
+          player and the standalone Open Video embed. Each panel logs its
+          actions to the event log at the bottom of the page so the underlying
+          composable and component behavior is visible as it happens.
         </p>
       </section>
 
@@ -304,13 +310,15 @@ onMounted(() => {
       <section class="panel">
         <h2>Dynamic content — incremental showAds</h2>
         <p>
-          Mounting a new <code>&lt;EzoicAd&gt;</code> joins the SDK's per-tick
-          batch (a <code>displayMore</code> after the first pageview).
+          Each unit is a sizes-only <code>&lt;EzoicAd :sizes="…"&gt;</code> with
+          no id or location; it takes the next free generic in-content slot and
+          joins the SDK's per-tick batch (a <code>displayMore</code>
+          after the first pageview).
         </p>
         <button type="button" @click="addAdUnit">Add ad unit</button>
         <div v-for="unit in dynamicUnits" :key="unit.key" class="ad-slot">
-          <span class="ad-label">{{ unit.location }} #{{ unit.key }}</span>
-          <EzoicAd :location="unit.location" :sizes="unit.sizes" />
+          <span class="ad-label">sizes-only #{{ unit.key }}</span>
+          <EzoicAd :sizes="unit.sizes" :required="true" />
         </div>
       </section>
 

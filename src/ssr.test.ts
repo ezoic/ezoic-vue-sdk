@@ -81,6 +81,18 @@ describe('server-side rendering', () => {
     expect(html).not.toContain('ezoic-pub-ad-placeholder-');
   });
 
+  it('renders a sizes-only <EzoicAd> to nothing on the server without touching the DOM', async () => {
+    const app = createApp({
+      setup() {
+        return () => h(EzoicAd, { sizes: ['300x250'] });
+      },
+    });
+    app.use(EzoicPlugin);
+
+    const html = await renderToString(app);
+    expect(html).not.toContain('ezoic-pub-ad-placeholder-');
+  });
+
   it('renders <EzoicVideo> to its placeholder div without touching the DOM', async () => {
     const app = createApp({
       setup() {

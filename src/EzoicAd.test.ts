@@ -170,7 +170,7 @@ describe('<EzoicAd>', () => {
     const wrapper = mountWithPlugin(EzoicAd);
 
     expect(warn).toHaveBeenCalledTimes(1);
-    expect(warn.mock.calls[0][0]).toContain('exactly one');
+    expect(warn.mock.calls[0][0]).toContain('nonempty `sizes`');
     expect(wrapper.find('div').exists()).toBe(false);
 
     await flushPromises();
@@ -184,10 +184,11 @@ describe('<EzoicAd>', () => {
     const wrapper = mountWithPlugin(EzoicAd, {
       id: 101,
       location: 'under_first_paragraph',
+      sizes: ['300x250'],
     });
 
     expect(warn).toHaveBeenCalledTimes(1);
-    expect(warn.mock.calls[0][0]).toContain('exactly one');
+    expect(warn.mock.calls[0][0]).toContain('not both');
     expect(wrapper.find('div').exists()).toBe(false);
 
     await flushPromises();
@@ -583,5 +584,191 @@ describe('<EzoicAd location> — bundle-loaded resolver', () => {
     expect(requested).toContainEqual({ id: 915, required: true });
 
     wrapper.unmount();
+  });
+});
+
+describe('<EzoicAd sizes> — sizes-only placement', () => {
+  it('resolves to a generic in-content slot, required by default, without warnings', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const wrapper = mountWithPlugin(EzoicAd, { sizes: ['300x250'] });
+    await flushPromises();
+
+    const el = wrapper.element as HTMLElement;
+    expect(el.id).toBe(placeholderDomId(915));
+    expect(el.getAttribute('class')).toBeNull();
+    expect(showAds).toHaveBeenCalledTimes(1);
+    expect(showAds).toHaveBeenCalledWith({
+      id: 915,
+      required: true,
+      sizes: ['300x250'],
+    });
+    expect(warn).not.toHaveBeenCalled();
+
+    wrapper.unmount();
+    await flushPromises();
+    expect(destroyPlaceholders).toHaveBeenCalledWith(915);
+    expect(isAdIdClaimed(915)).toBe(false);
+  });
+
+  it('honors explicit `required` true and false', async () => {
+    const on = mountWithPlugin(EzoicAd, { sizes: ['728x90'], required: true });
+    await flushPromises();
+    expect(showAds).toHaveBeenLastCalledWith({
+      id: 915,
+      required: true,
+      sizes: ['728x90'],
+    });
+    on.unmount();
+
+    const off = mountWithPlugin(EzoicAd, {
+      sizes: ['728x90'],
+      required: false,
+    });
+    await flushPromises();
+    // Explicit `false` (not `undefined`) means no `required` key is emitted.
+    expect(showAds).toHaveBeenLastCalledWith({ id: 915, sizes: ['728x90'] });
+    off.unmount();
+  });
+
+  it('gives several sizes-only ads distinct ids in one batched showAds call', async () => {
+    const Parent = defineComponent({
+      setup() {
+        return () =>
+          h('div', [
+            h(EzoicAd, { location: 'mid_content', sizes: ['728x90'] }),
+            h(EzoicAd, { sizes: ['300x250'] }),
+            h(EzoicAd, { sizes: ['320x50'], required: true }),
+            h(EzoicAd, { id: 101 }),
+          ]);
+      },
+    });
+
+    const wrapper = mountWithPlugin(Parent);
+    await flushPromises();
+
+    expect(showAds).toHaveBeenCalledTimes(1);
+    expect(showAds).toHaveBeenCalledWith(
+      { id: 911, required: true, sizes: ['728x90'] },
+      { id: 915, required: true, sizes: ['300x250'] },
+      { id: 916, required: true, sizes: ['320x50'] },
+      101,
+    );
+
+    wrapper.unmount();
+    await flushPromises();
+    for (const id of [911, 915, 916, 101]) {
+      expect(destroyPlaceholders).toHaveBeenCalledWith(id);
+      expect(isAdIdClaimed(id)).toBe(false);
+    }
+  });
+
+  it('reuses a freed generic slot after an earlier sizes-only ad unmounts', async () => {
+    const first = mountWithPlugin(EzoicAd, { sizes: ['300x250'] });
+    await flushPromises();
+    first.unmount();
+
+    const second = mountWithPlugin(EzoicAd, { sizes: ['300x250'] });
+    await flushPromises();
+    expect((second.element as HTMLElement).id).toBe(placeholderDomId(915));
+    second.unmount();
+  });
+
+  it('warns and renders nothing for empty sizes with no id or location', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const wrapper = mountWithPlugin(EzoicAd, { sizes: [], required: true });
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toContain('nonempty `sizes`');
+    expect(wrapper.find('div').exists()).toBe(false);
+
+    await flushPromises();
+    expect(showAds).not.toHaveBeenCalled();
+    wrapper.unmount();
+    expect(destroyPlaceholders).not.toHaveBeenCalled();
+  });
+
+  it('asks the loaded bundle for a generic id with an empty location name', async () => {
+    const getId = vi.fn(() => Promise.resolve(915));
+    window.ezstandalone = {
+      cmd: { push: (fn: EzoicCmdFn) => fn() },
+      showAds,
+      destroyPlaceholders,
+      GetGeneratedIdAsync: getId,
+    };
+
+    const wrapper = mountWithPlugin(EzoicAd, { sizes: ['300x250'] });
+    await flushPromises();
+
+    expect(getId).toHaveBeenCalledWith('');
+    expect((wrapper.element as HTMLElement).id).toBe(placeholderDomId(915));
+    expect(showAds).toHaveBeenCalledWith({
+      id: 915,
+      required: true,
+      sizes: ['300x250'],
+    });
+
+    wrapper.unmount();
+    await flushPromises();
+    expect(destroyPlaceholders).toHaveBeenCalledWith(915);
+  });
+
+  it('splits concurrent bundle-resolved sizes-only ads onto distinct ids', async () => {
+    window.ezstandalone = {
+      cmd: { push: (fn: EzoicCmdFn) => fn() },
+      showAds,
+      destroyPlaceholders,
+      GetGeneratedIdAsync: () => Promise.resolve(915),
+    };
+
+    const Parent = defineComponent({
+      setup() {
+        return () =>
+          h('div', [
+            h(EzoicAd, { sizes: ['300x250'] }),
+            h(EzoicAd, { sizes: ['300x250'] }),
+          ]);
+      },
+    });
+
+    const wrapper = mountWithPlugin(Parent);
+    await flushPromises();
+
+    const requested = showAds.mock.calls.flat();
+    expect(requested).toContainEqual({
+      id: 915,
+      required: true,
+      sizes: ['300x250'],
+    });
+    expect(requested).toContainEqual({
+      id: 916,
+      required: true,
+      sizes: ['300x250'],
+    });
+
+    wrapper.unmount();
+  });
+
+  it('does not request or leak an id when unmounted before the bundle resolves', async () => {
+    let settle!: (v: number) => void;
+    window.ezstandalone = {
+      cmd: { push: (fn: EzoicCmdFn) => fn() },
+      showAds,
+      destroyPlaceholders,
+      GetGeneratedIdAsync: () =>
+        new Promise<number>((resolve) => {
+          settle = resolve;
+        }),
+    };
+
+    const wrapper = mountWithPlugin(EzoicAd, { sizes: ['300x250'] });
+    wrapper.unmount();
+    settle(915);
+    await flushPromises();
+
+    expect(showAds).not.toHaveBeenCalled();
+    expect(destroyPlaceholders).not.toHaveBeenCalled();
+    expect(isAdIdClaimed(915)).toBe(false);
   });
 });

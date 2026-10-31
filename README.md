@@ -147,8 +147,10 @@ import { EzoicAd } from '@ezoic/vue-sdk';
 </template>
 ```
 
-- **`id` or `location`, never both.** Pass exactly one. Passing both, or
-  neither, logs a warning and renders nothing.
+- **`id` or `location`, never both.** Passing both logs a warning and renders
+  nothing. Passing neither is allowed only with nonempty `sizes` (see
+  [Sizes-only placements](#sizes-only-placements)); with no usable props the
+  SDK logs a warning and renders nothing.
 - **`location` placements default `required: true`.** That is what marks them
   zero-config server-side (the Ezoic ad server only treats a 900-range id as zero-config when it
   is required). Opt out with `:required="false"`. Numeric `id` placements keep
@@ -180,6 +182,36 @@ import { EzoicAd } from '@ezoic/vue-sdk';
 
 `required`/`sizes`, batching, teardown on unmount, and the bare-div rule all
 apply to `location` placeholders just like numeric ones.
+
+## Sizes-only placements
+
+When you do not care which position an ad takes, pass only `sizes`. The SDK
+picks the next free generic in-content slot (`incontent_5` and up, ids 915+)
+for you:
+
+```vue
+<script setup lang="ts">
+import { EzoicAd } from '@ezoic/vue-sdk';
+</script>
+
+<template>
+  <EzoicAd :sizes="['300x250']" :required="true" />
+  <EzoicAd :sizes="['728x90', '320x50']" :required="true" />
+</template>
+```
+
+- **`sizes` must be nonempty.** It is the only thing that defines the ad, so
+  `:sizes="[]"` with no `id` or `location` logs a warning and renders nothing.
+- **`required` defaults to `true`,** as for `location` placements. Opt out with
+  `:required="false"`.
+- **Distinct ids.** Every sizes-only ad gets its own id, and ads mounting in
+  the same tick share one batched `showAds(...)` call. Named locations keep
+  their precise ids, so mixing them with sizes-only ads is safe.
+- **Resolves like a location.** When the ad bundle has loaded, the SDK calls
+  `GetGeneratedIdAsync('')`; before that it uses the static map. Like a
+  `location`, it renders nothing during SSR and appears after mount.
+- **Teardown.** Unmounting destroys the id it took, freeing that slot for the
+  next sizes-only ad.
 
 ## Single-page apps (SPA routing)
 
@@ -681,7 +713,7 @@ import { EzoicAd } from '@ezoic/vue-sdk';
 
 A runnable Vite + Vue 3 demo lives in [`examples/`](./examples). It exercises
 every SDK feature on one page — display ads and zero-config `location`
-placements, numeric-id placements, dynamic incremental `showAds`, simulated SPA
+placements, sizes-only placements, numeric-id placements, dynamic incremental `showAds`, simulated SPA
 navigation via `useEzoicPageView()`, consent/config, rewarded ads, and video —
 with an on-page event log.
 
