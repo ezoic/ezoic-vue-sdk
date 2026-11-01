@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Updated ESLint, globals, vue-tsc, and the demo's Node types.
 - The examples demo's dynamic placements are now sizes-only, and its
   simulated SPA routes use `longer_content`/`longest_content` so generic
   in-content slots stay free.
@@ -33,6 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- Pinned development-only minimatch 11.0.3 and glob 14.0.3 to fix
+  GHSA-g3hv-75wg-m249 and GHSA-3g3m-2fjr-6pw4 in lint and test tools.
 - Development lockfile: bumped the transitive `undici` dependency (via
   `jsdom`) from 7.30.0 to 7.30.1 to address GHSA-4qv8-2p9j-2685,
   GHSA-f72v-6w45-q472 and GHSA-xjj6-f33q-929c. Test tooling only; the

@@ -47,6 +47,22 @@ npm run build
 All five must pass. If `format:check` fails, run `npm run format` to autofix
 and re-check.
 
+## Tool dependency overrides
+
+The root package pins `minimatch` 11.0.3 and `glob` 14.0.3 to address
+[GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249) and
+[GHSA-3g3m-2fjr-6pw4](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4).
+These are development tools; the SDK has no runtime dependency on either.
+
+ESLint, its config matcher, typescript-eslint, and editorconfig still select
+minimatch 10. js-beautify (used by Vue test utilities) still selects glob 13.
+The overrides cross those major-version ranges. Keep lint, type checks,
+tests, builds, and the beautifier CLI with file globs and editorconfig working
+on Node 20 and 22 when changing these pins.
+
+Remove each override once a fresh install without it resolves only patched
+versions, both root and examples audits pass, and the Node 20/22 checks pass.
+
 ## Tests
 
 Tests are written with [Vitest](https://vitest.dev/) and
