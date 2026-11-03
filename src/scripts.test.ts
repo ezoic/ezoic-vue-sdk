@@ -159,6 +159,164 @@ describe('injectEzoicScripts', () => {
   });
 });
 
+describe('browser-resolved script reuse', () => {
+  beforeEach(() => {
+    const base = document.createElement('base');
+    base.href = 'https://publisher.example/assets/';
+    document.head.appendChild(base);
+  });
+
+  function hostScript(src: string): HTMLScriptElement {
+    const script = document.createElement('script');
+    script.setAttribute('src', src);
+    script.setAttribute('data-host', 'keep');
+    document.head.appendChild(script);
+    return script;
+  }
+
+  function externalScripts(): HTMLScriptElement[] {
+    return [...document.querySelectorAll<HTMLScriptElement>('script[src]')];
+  }
+
+  it('reuses protocol-relative CMP and standalone tags across repeated calls', () => {
+    const scripts = [CMP1, CMP2, STANDALONE_SCRIPT_URL].map((url) =>
+      hostScript(url.replace('https:', '')),
+    );
+    const attributes = scripts.map((script) => script.outerHTML);
+    const cmd = [vi.fn()];
+    window.ezstandalone = { cmd };
+
+    injectEzoicScripts();
+    injectEzoicScripts();
+
+    expect(externalScripts()).toEqual(scripts);
+    expect(scripts.map((script) => script.outerHTML)).toEqual(attributes);
+    expect(window.ezstandalone.cmd).toBe(cmd);
+    expect(document.querySelector(STUB_SELECTOR)).toBeNull();
+  });
+
+  it('places CMP and stub before a protocol-relative standalone tag', () => {
+    const src = STANDALONE_SCRIPT_URL.replace('https:', '');
+    const standalone = hostScript(src);
+
+    injectEzoicScripts();
+    injectEzoicScripts();
+
+    expect(headScriptOrder()).toEqual([CMP1, CMP2, '[inline-stub]', src]);
+    expect(externalScripts()[2]).toBe(standalone);
+    expect(Array.isArray(window.ezstandalone?.cmd)).toBe(true);
+  });
+
+  it.each([
+    ['analytics.js', 'https://publisher.example/assets/analytics.js'],
+    ['https://publisher.example/assets/analytics.js', './analytics.js'],
+  ])('reuses analytics %s when given %s under a base element', (host, sdk) => {
+    const existing = hostScript(host);
+
+    injectEzoicScripts({ cmp: false, analyticsScriptUrl: sdk });
+    injectEzoicScripts({ cmp: false, analyticsScriptUrl: sdk });
+
+    expect(
+      externalScripts().filter((script) => script.src === existing.src),
+    ).toEqual([existing]);
+    expect(existing.getAttribute('src')).toBe(host);
+  });
+
+  it.each([
+    [
+      '../porpoiseant/ezadloadrewarded.js',
+      'https://publisher.example/porpoiseant/ezadloadrewarded.js',
+    ],
+    [
+      'https://publisher.example/porpoiseant/ezadloadrewarded.js',
+      '/porpoiseant/ezadloadrewarded.js',
+    ],
+  ])('reuses rewarded %s when given %s under a base element', (host, sdk) => {
+    const existing = hostScript(host);
+    const cmd = [vi.fn()];
+    window.ezRewardedAds = { cmd };
+
+    injectRewardedLoader(sdk);
+    injectRewardedLoader(sdk);
+
+    expect(externalScripts()).toEqual([existing]);
+    expect(existing.getAttribute('src')).toBe(host);
+    expect(window.ezRewardedAds.cmd).toBe(cmd);
+  });
+
+  it('reuses protocol-relative Open Video without replacing its live handler', () => {
+    const existing = hostScript(OPEN_VIDEO_SCRIPT_URL.replace('https:', ''));
+    const handler = { push: vi.fn() };
+    window.openVideoPlayers = handler;
+
+    try {
+      injectOpenVideoScript();
+      injectOpenVideoScript();
+
+      expect(externalScripts()).toEqual([existing]);
+      expect(window.openVideoPlayers).toBe(handler);
+    } finally {
+      delete window.openVideoPlayers;
+    }
+  });
+
+  it('keeps distinct protocols, query strings and fragments as separate scripts', () => {
+    const urls = [
+      'https://publisher.example/analytics.js?site=1#first',
+      'http://publisher.example/analytics.js?site=1#first',
+      'https://publisher.example/analytics.js?site=2#first',
+      'https://publisher.example/analytics.js?site=1#second',
+    ];
+    const existing = hostScript(urls[0]);
+
+    for (const analyticsScriptUrl of urls) {
+      injectEzoicScripts({ cmp: false, analyticsScriptUrl });
+      injectEzoicScripts({ cmp: false, analyticsScriptUrl });
+    }
+
+    expect(
+      externalScripts()
+        .filter((script) => script.src !== STANDALONE_SCRIPT_URL)
+        .map((script) => script.src),
+    ).toEqual(urls);
+    expect(externalScripts()[0]).toBe(existing);
+  });
+
+  it('matches URL text with quotes without building a selector', () => {
+    const src = 'https://publisher.example/analytics.js?label="host"';
+    const existing = hostScript(src);
+
+    injectEzoicScripts({ cmp: false, analyticsScriptUrl: src });
+    injectEzoicScripts({ cmp: false, analyticsScriptUrl: src });
+
+    expect(
+      externalScripts().filter((script) => script.src === existing.src),
+    ).toEqual([existing]);
+  });
+
+  it('reuses host scripts and queues when script src writes are blocked', () => {
+    const scripts = [CMP1, CMP2, STANDALONE_SCRIPT_URL].map((url) =>
+      hostScript(url.replace('https:', '')),
+    );
+    const cmd = [vi.fn()];
+    window.ezstandalone = { cmd };
+    const setter = vi
+      .spyOn(HTMLScriptElement.prototype, 'src', 'set')
+      .mockImplementation(() => {
+        throw new TypeError('TrustedScriptURL required');
+      });
+
+    try {
+      expect(() => injectEzoicScripts()).not.toThrow();
+      expect(externalScripts()).toEqual(scripts);
+      expect(window.ezstandalone.cmd).toBe(cmd);
+      expect(setter).not.toHaveBeenCalled();
+    } finally {
+      setter.mockRestore();
+    }
+  });
+});
+
 describe('ensureRewardedCmdQueue', () => {
   it('creates window.ezRewardedAds.cmd as an array', () => {
     ensureRewardedCmdQueue();

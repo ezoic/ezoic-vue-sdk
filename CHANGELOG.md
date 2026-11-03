@@ -25,6 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Script injection now reuses host-provided CMP, standalone, analytics, rewarded,
+  and Open Video tags whose browser-resolved URLs match, including
+  protocol-relative and relative URLs. Missing CMP scripts and the command stub
+  stay ahead of an existing standalone bundle.
 - README display-ad examples now use distinct 900-range positions with explicit
   sizes and required fill behavior. The raw-div SPA recipe supplies full
   descriptors on initial mount and every route change; the managed-mode docs

@@ -37,9 +37,12 @@ import App from './App.vue';
 createApp(App).use(EzoicPlugin).mount('#app');
 ```
 
-Injection is idempotent (scripts are never double-added, and any Ezoic scripts
-already present in your HTML are left alone) and SSR-safe — during server render
-no `window` or `document` is touched, so it works under Nuxt 3.
+Injection reuses existing scripts with the same browser-resolved URL, including
+protocol-relative URLs (such as `//www.ezojs.com/ezoic/sa.min.js` on HTTPS pages)
+and relative URLs resolved against the document's base URL. Existing tags are
+left alone; different protocols, query strings, or fragments remain distinct.
+Injection is SSR-safe — during server render no `window` or `document` is
+touched, so it works under Nuxt 3.
 
 ### Options
 

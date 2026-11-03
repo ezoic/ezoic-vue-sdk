@@ -52,16 +52,15 @@ function headElement(): HTMLHeadElement {
   return head;
 }
 
-/**
- * Finds an existing `<script>` with the given `src`. Compares the `src`
- * attribute directly rather than building a selector, so arbitrary URLs cannot
- * break the query.
- */
+/** Finds an existing script by its browser-resolved URL. */
 function findExternalScript(url: string): HTMLScriptElement | null {
+  // An anchor resolves against baseURI without a Trusted Types script sink.
+  const resolver = document.createElement('a');
+  resolver.href = url;
   const scripts = Array.from(
     document.querySelectorAll<HTMLScriptElement>('script[src]'),
   );
-  return scripts.find((el) => el.getAttribute('src') === url) ?? null;
+  return scripts.find((el) => el.src === resolver.href) ?? null;
 }
 
 interface ExternalScriptOptions {
