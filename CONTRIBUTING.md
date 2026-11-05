@@ -49,7 +49,7 @@ and re-check.
 
 ## Tool dependency overrides
 
-The root package pins `minimatch` 11.0.3 and `glob` 14.0.3 to address
+The root package pins `minimatch` 11.0.4 and `glob` 14.0.3 to address
 [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249) and
 [GHSA-3g3m-2fjr-6pw4](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4).
 These are development tools; the SDK has no runtime dependency on either.
