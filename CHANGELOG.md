@@ -18,8 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Updated Vite to 8.3.6 in the SDK and examples, Vue's development dependency
-  to 3.5.45, and the development-only minimatch override to 11.0.4.
+- Updated Vite to 8.3.8 in the SDK and examples, Prettier to 3.10.0,
+  typescript-eslint to 8.72.2, Vue's development dependency to 3.5.45, and the development-only minimatch override to 11.0.4.
 - Updated ESLint, globals, vue-tsc, and the demo's Node types.
 - The examples demo's dynamic placements are now sizes-only, and its
   simulated SPA routes use `longer_content`/`longest_content` so generic
