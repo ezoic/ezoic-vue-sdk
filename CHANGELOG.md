@@ -18,8 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Updated Vite to 8.3.8 in the SDK and examples, Prettier to 3.10.0,
-  typescript-eslint to 8.72.2, Vue's development dependency to 3.5.45, and the development-only minimatch override to 11.0.4.
+- Updated Vite to 8.3.8 and @vitejs/plugin-vue to 6.0.11 in the SDK and examples,
+  Prettier to 3.10.1, typescript-eslint to 8.72.2, Vue's development dependency
+  to 3.5.45, and the development-only minimatch and glob overrides to 11.0.8
+  and 14.0.6.
 - Updated ESLint, globals, vue-tsc, and the demo's Node types.
 - The examples demo's dynamic placements are now sizes-only, and its
   simulated SPA routes use `longer_content`/`longest_content` so generic
@@ -40,7 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-- Pinned development-only minimatch 11.0.4 and glob 14.0.3 to fix
+- Pinned development-only minimatch 11.0.8 and glob 14.0.6 to fix
   GHSA-g3hv-75wg-m249 and GHSA-3g3m-2fjr-6pw4 in lint and test tools.
 - Development lockfile: bumped the transitive `undici` dependency (via
   `jsdom`) from 7.30.0 to 7.30.1 to address GHSA-4qv8-2p9j-2685,
