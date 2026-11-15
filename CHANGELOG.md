@@ -22,7 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Prettier to 3.10.1, typescript-eslint to 8.72.2, Vue's development dependency
   to 3.5.45, and the development-only minimatch and glob overrides to 11.0.8
   and 14.0.6.
-- Updated ESLint, globals, vue-tsc, and the demo's Node types.
+- Updated ESLint to 10.15.0, @vue/test-utils to 2.6.0, globals, vue-tsc, and
+  the demo's Node types.
 - The examples demo's dynamic placements are now sizes-only, and its
   simulated SPA routes use `longer_content`/`longest_content` so generic
   in-content slots stay free.
