@@ -54,8 +54,8 @@ The root package pins `minimatch` 11.0.8 and `glob` 14.0.6 to address
 [GHSA-3g3m-2fjr-6pw4](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4).
 These are development tools; the SDK has no runtime dependency on either.
 
-ESLint and its config matcher now select minimatch 11, but typescript-eslint
-and editorconfig still select minimatch 10. js-beautify (used by Vue test utilities) still selects glob 13.
+ESLint, its config matcher, and typescript-eslint now select minimatch 11, but
+editorconfig still selects minimatch 10. js-beautify (used by Vue test utilities) still selects glob 13.
 The overrides cross those major-version ranges. Keep lint, type checks,
 tests, builds, and the beautifier CLI with file globs and editorconfig working
 on Node 20 and 22 when changing these pins.
