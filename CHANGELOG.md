@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Updated Vite to 8.3.8 and @vitejs/plugin-vue to 6.0.11 in the SDK and examples,
   Prettier to 3.10.1, typescript-eslint to 8.73.0, Vue's development dependency
-  to 3.5.45, and the development-only minimatch and glob overrides to 11.0.8
+  to 3.5.46, and the development-only minimatch and glob overrides to 11.0.8
   and 14.0.6.
 - Updated ESLint to 10.15.0, @vue/test-utils to 2.6.0, globals, vue-tsc, and
   the demo's Node types.
